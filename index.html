@@ -1,827 +1,250 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Dowdy Distortion</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;900&family=Archivo:wght@400;600&family=Martian+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<style>
-:root {
-  --chassis: #26241F;
-  --chassis-2: #1F1D19;
-  --cream: #EDE6D2;
-  --cream-2: #DAD2BC;
-  --ink: #1C1A15;
-  --amber: #D98E04;
-  --amber-bright: #F2A413;
-  --amber-dim: #8a5b03;
-  --brass: #6E6A57;
-  --brass-dim: #3f3d33;
-  --bad: #C04A2B;
-  --good: #6F8F4D;
-  --panel: #1C1A16;
-  --hairline: rgba(237,230,210,0.07);
-  --glow: rgba(217,142,4,0.5);
-}
-
-* { box-sizing: border-box; }
-
-html, body {
-  margin: 0;
-  padding: 0;
-  background: var(--chassis);
-  color: var(--cream);
-  font-family: 'Archivo', system-ui, sans-serif;
-  font-size: 15px;
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
-}
-
-body {
-  background:
-    radial-gradient(ellipse 90% 50% at 50% -5%, rgba(217,142,4,0.07), transparent 55%),
-    radial-gradient(ellipse 60% 45% at 50% 112%, rgba(217,142,4,0.035), transparent 60%),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.010) 0 1px, transparent 1px 2px),
-    repeating-linear-gradient(0deg, rgba(0,0,0,0.10) 0 1px, transparent 1px 3px),
-    var(--chassis);
-}
-
-button, input, select { font-family: inherit; color: inherit; }
-
-a { color: var(--amber); }
-
-/* ----- Start gate overlay ----- */
-#start-gate {
-  position: fixed; inset: 0;
-  background:
-    radial-gradient(ellipse 70% 55% at 50% 40%, rgba(217,142,4,0.10), transparent 60%),
-    rgba(18, 16, 12, 0.96);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000;
-  flex-direction: column;
-  text-align: center;
-  padding: 32px;
-  backdrop-filter: blur(8px);
-  transition: opacity 0.5s ease, visibility 0.5s ease;
-}
-#start-gate.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-#start-gate h1 {
-  font-family: 'Big Shoulders Display', sans-serif;
-  font-weight: 900;
-  font-size: clamp(44px, 8vw, 82px);
-  letter-spacing: 0.015em;
-  line-height: 1.04;
-  margin: 0 0 18px;
-  color: var(--cream);
-  text-shadow: 0 2px 0 #000, 0 0 40px rgba(217,142,4,0.18);
-}
-#start-gate .subtitle {
-  font-family: 'Martian Mono', monospace;
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  color: var(--amber);
-  text-transform: uppercase;
-  margin: 0 0 36px;
-}
-#start-gate button {
-  background: var(--amber);
-  color: var(--ink);
-  border: none;
-  padding: 18px 44px;
-  font-family: 'Big Shoulders Display', sans-serif;
-  font-weight: 700;
-  font-size: 22px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 2px;
-  box-shadow: 0 4px 0 #7f5202, 0 0 0 2px var(--brass);
-  transition: transform 0.06s ease, box-shadow 0.06s ease;
-}
-#start-gate button:hover {
-  box-shadow: 0 4px 0 #7f5202, 0 0 0 2px var(--brass), 0 0 32px -4px var(--glow);
-}
-#start-gate button:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 #7f5202, 0 0 0 2px var(--brass);
-}
-/* ----- Top bar ----- */
-header.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 500;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 15px 28px 13px;
-  border-bottom: 1px solid var(--brass);
-  background:
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, #2a2822, #201e19);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.5), 0 2px 0 rgba(110,106,87,0.14);
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.brand {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-.brand .title {
-  font-family: 'Big Shoulders Display', sans-serif;
-  font-weight: 900;
-  font-size: 34px;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  color: var(--cream);
-  text-shadow: 0 1px 0 #000, 0 0 18px rgba(217,142,4,0.12);
-}
-.brand .sub {
-  font-family: 'Martian Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  color: var(--amber);
-  text-transform: uppercase;
-}
-
-.topbar-controls {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.seg {
-  display: inline-flex;
-  border: 1px solid var(--brass-dim);
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--chassis-2);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);
-}
-.seg button {
-  background: transparent;
-  border: none;
-  padding: 7px 13px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cream-2);
-  cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
-}
-.seg button:hover { background: rgba(237,230,210,0.06); color: var(--cream); }
-.seg button.active {
-  background: linear-gradient(180deg, var(--amber-bright), var(--amber));
-  color: var(--ink);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px -2px var(--glow);
-}
-.seg button + button { border-left: 1px solid var(--brass-dim); }
-
-.seg-label {
-  font-family: 'Martian Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--brass);
-  margin-right: 8px;
-  align-self: center;
-}
-
-/* ----- Main layout ----- */
-main.lab {
-  display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 24px;
-  padding: 26px 28px 90px;
-  max-width: 1500px;
-  margin: 0 auto;
-}
-@media (max-width: 980px) {
-  main.lab { grid-template-columns: 1fr; }
-}
-
-.panel {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.018), transparent 140px),
-    var(--panel);
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  padding: 18px 20px;
-  position: relative;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 14px 32px -22px rgba(0,0,0,0.9);
-}
-.panel-title {
-  font-family: 'Martian Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--brass);
-  margin: 0 0 14px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-.panel-title::before {
-  content: "";
-  width: 14px; height: 2px;
-  background: var(--amber);
-  box-shadow: 0 0 6px -1px var(--glow);
-  flex: none;
-}
-
-.col-main { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
-.col-side { display: flex; flex-direction: column; gap: 24px; }
-
-/* Schematic */
-#schematic-wrap { padding: 12px 8px 6px; }
-#schematic-wrap svg { width: 100%; height: auto; display: block; }
-
-/* Knobs row */
-.knobs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 10px;
-}
-.knob {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 14px 8px 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
-  border: 1px solid var(--hairline);
-  border-radius: 9px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 18px -14px rgba(0,0,0,0.9);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.knob:hover {
-  border-color: rgba(217,142,4,0.25);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 24px -12px var(--glow);
-}
-.knob .name {
-  font-family: 'Martian Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--cream-2);
-  margin-bottom: 8px;
-}
-.knob svg { width: 84px; height: 84px; cursor: grab; touch-action: none; display: block; }
-.knob svg:active { cursor: grabbing; }
-.knob .indicator { filter: drop-shadow(0 0 2px var(--glow)); }
-.knob .knob-arc { filter: drop-shadow(0 0 3px var(--glow)); }
-.knob .val {
-  margin-top: 9px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--amber-bright);
-  letter-spacing: 0.02em;
-  background: rgba(0,0,0,0.35);
-  padding: 3px 9px;
-  border-radius: 5px;
-  border: 1px solid var(--hairline);
-  min-width: 64px;
-  text-align: center;
-}
-
-.bypass-row {
-  display: flex;
-  gap: 6px;
-  margin-top: 10px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-.bypass-btn {
-  background: transparent;
-  border: 1px solid var(--brass-dim);
-  color: var(--cream-2);
-  padding: 6px 11px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.18s ease;
-}
-.bypass-btn:hover { border-color: var(--brass); color: var(--cream); background: rgba(237,230,210,0.04); }
-.bypass-btn.bypassed {
-  background: var(--brass-dim);
-  color: var(--brass);
-  text-decoration: line-through;
-}
-
-.preset-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-.preset-row select, .preset-row .seg button {
-  background: var(--chassis);
-  color: var(--cream);
-  border: 1px solid var(--brass);
-  padding: 6px 10px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  border-radius: 2px;
-}
-.preset-reset {
-  background: transparent;
-  color: var(--cream-2);
-  border: 1px solid var(--brass-dim);
-  padding: 6px 10px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.preset-reset:hover { border-color: var(--brass); color: var(--cream); }
-
-/* Scopes row */
-.scopes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-@media (max-width: 700px) {
-  .scopes { grid-template-columns: 1fr; }
-}
-.scope {
-  background: radial-gradient(ellipse 120% 120% at 50% 0%, rgba(217,142,4,0.04), transparent 55%), #14120F;
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: inset 0 0 26px rgba(0,0,0,0.6), inset 0 0 1px rgba(217,142,4,0.2);
-}
-.scope-label {
-  font-family: 'Martian Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--brass);
-  margin-bottom: 6px;
-}
-.scope canvas { width: 100%; height: 150px; display: block; border-radius: 4px; }
-
-/* Engineering plots */
-.eng-plots {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-@media (max-width: 700px) { .eng-plots { grid-template-columns: 1fr; } }
-.eng-plots canvas { width: 100%; height: 200px; display: block; }
-/* Raw Is/n sliders */
-.raw-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 12px;
-}
-.raw-slider label {
-  display: flex;
-  justify-content: space-between;
-  font-family: 'Martian Mono', monospace;
-  font-size: 11px;
-  color: var(--brass);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.raw-slider input[type=range] { width: 100%; accent-color: var(--amber); }
-
-/* Build Sheet */
-.build-sheet {
-  background: linear-gradient(180deg, #f3ecda, var(--cream));
-  color: var(--ink);
-  border-radius: 8px;
-  padding: 18px 20px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 12.5px;
-  line-height: 1.6;
-  white-space: pre;
-  overflow-x: auto;
-  box-shadow: 0 12px 28px -18px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(0,0,0,0.05);
-}
-.build-sheet h3 {
-  margin: 0 0 10px;
-  font-family: 'Big Shoulders Display', sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  font-size: 18px;
-  color: var(--ink);
-  text-transform: uppercase;
-  white-space: normal;
-}
-.build-sheet pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.build-sheet .copy {
-  background: var(--ink);
-  color: var(--cream);
-  border: none;
-  margin-top: 12px;
-  padding: 7px 12px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 2px;
-}
-
-.copy-flash { background: var(--amber) !important; color: var(--ink) !important; }
-
-.parts-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: 'Martian Mono', monospace;
-  font-size: 12px;
-}
-.parts-table th {
-  text-align: left;
-  font-weight: 500;
-  font-size: 9.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--brass);
-  padding: 0 10px 8px;
-  border-bottom: 1px solid var(--brass-dim);
-}
-.parts-table th:last-child { text-align: right; }
-.parts-table td {
-  padding: 9px 10px;
-  border-bottom: 1px solid var(--hairline);
-  vertical-align: top;
-  color: var(--cream-2);
-}
-.parts-table tr:last-child td { border-bottom: none; }
-.parts-table td.ref {
-  color: var(--cream);
-  font-weight: 500;
-  white-space: nowrap;
-}
-.parts-table td.val {
-  color: var(--amber-bright);
-  text-align: right;
-  white-space: nowrap;
-}
-.parts-table tbody tr { transition: background 0.15s ease; }
-.parts-table tbody tr:hover { background: rgba(217,142,4,0.05); }
-.cutoff-note {
-  margin-top: 13px;
-  padding-top: 12px;
-  border-top: 1px solid var(--hairline);
-  font-family: 'Martian Mono', monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.03em;
-  color: var(--brass);
-  line-height: 1.5;
-}
-.copy-btn {
-  background: transparent;
-  color: var(--cream-2);
-  border: 1px solid var(--brass-dim);
-  margin-top: 14px;
-  padding: 7px 13px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.16s ease;
-}
-.copy-btn:hover { border-color: var(--brass); color: var(--cream); background: rgba(237,230,210,0.04); }
-
-/* A/B controls */
-.ab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.ab button {
-  background: var(--chassis-2);
-  border: 1px solid var(--brass-dim);
-  color: var(--cream-2);
-  padding: 6px 11px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.16s ease;
-}
-.ab button:hover { border-color: var(--brass); color: var(--cream); }
-.ab button.active {
-  background: linear-gradient(180deg, var(--amber-bright), var(--amber));
-  color: var(--ink);
-  box-shadow: 0 0 12px -3px var(--glow);
-  border-color: var(--amber);
-}
-.ab .save { color: var(--brass); }
-
-/* Source switcher reuses .seg */
-
-/* Headphone warning modal */
-.modal-back {
-  position: fixed; inset: 0;
-  background: rgba(20, 18, 14, 0.85);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 900;
-  padding: 24px;
-}
-.modal-back.hidden { display: none; }
-.modal {
-  background: var(--chassis-2);
-  border: 1px solid var(--amber-dim);
-  border-radius: 4px;
-  padding: 24px 28px;
-  max-width: 460px;
-  text-align: center;
-}
-.modal h2 {
-  font-family: 'Big Shoulders Display', sans-serif;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--amber);
-  margin: 0 0 10px;
-}
-.modal p { line-height: 1.55; }
-.modal .actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
-.modal button {
-  border: 1px solid var(--brass);
-  background: transparent;
-  color: var(--cream);
-  padding: 9px 16px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 2px;
-}
-.modal button.primary {
-  background: var(--amber);
-  color: var(--ink);
-  border-color: var(--amber);
-}
-
-/* Schematic styles */
-.sch-wire { stroke: var(--cream); stroke-width: 1.6; fill: none; }
-.sch-wire.active { stroke: var(--amber); }
-.sch-component { fill: none; stroke: var(--cream); stroke-width: 1.6; }
-.sch-diode-fill { fill: var(--cream); }
-/* Dimming applies to direct elements or any descendants of a dimmed group */
-.dim { opacity: 0.35; }
-.dim .sch-wire, .sch-wire.dim { stroke: var(--brass); }
-.dim .sch-component, .sch-component.dim { stroke: var(--brass); }
-.dim .sch-diode-fill, .sch-diode-fill.dim { fill: var(--brass); }
-.dim .sch-text, .sch-text.dim { fill: var(--brass-dim); }
-.sch-text {
-  font-family: 'Martian Mono', monospace;
-  font-size: 11px;
-  fill: var(--cream);
-  letter-spacing: 0.04em;
-}
-.sch-text.label { fill: var(--brass); font-size: 10px; }
-.sch-text.value-text {
-  fill: var(--amber);
-  cursor: pointer;
-  font-weight: 500;
-}
-.sch-text.value-text:hover { fill: #ffb02b; text-decoration: underline; }
-.sch-jack { fill: var(--cream); }
-.sch-bg-grid line { stroke: var(--brass-dim); stroke-width: 0.4; opacity: 0.4; }
-.sch-wire, .sch-component, .sch-diode-fill, .sch-text, .sch-junction {
-  transition: stroke 0.35s ease, fill 0.35s ease, opacity 0.35s ease;
-}
-.dim { transition: opacity 0.35s ease; }
-
-/* Inline editor for click-to-edit */
-.value-editor {
-  position: absolute;
-  background: var(--chassis);
-  border: 1px solid var(--amber);
-  padding: 4px 8px;
-  border-radius: 2px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 13px;
-  color: var(--amber);
-  z-index: 50;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-}
-.value-editor input {
-  background: transparent;
-  border: none;
-  color: var(--amber);
-  font-family: inherit;
-  font-size: inherit;
-  width: 90px;
-  outline: none;
-}
-.value-editor .editor-unit {
-  color: var(--brass);
-  font-size: 11px;
-  white-space: nowrap;
-}
-.value-editor .quick-picks {
-  display: flex;
-  gap: 4px;
-  width: 100%;
-  margin-top: 5px;
-}
-.value-editor .quick-pick {
-  background: var(--chassis-2);
-  border: 1px solid var(--brass-dim);
-  border-radius: 2px;
-  color: var(--cream-2);
-  cursor: pointer;
-  font-family: 'Martian Mono', monospace;
-  font-size: 9px;
-  padding: 2px 4px;
-}
-.value-editor .quick-pick:hover { border-color: var(--amber); color: var(--amber); }
-.value-editor.err { border-color: var(--bad); }
-.value-editor.err input { color: var(--bad); }
-
-footer.foot {
-  text-align: center;
-  padding: 20px;
-  font-family: 'Martian Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  color: var(--brass-dim);
-  text-transform: uppercase;
-}
-</style>
-</head>
-<body>
-
-<!-- Start gate -->
-<div id="start-gate">
-  <h1>DOWDY DISTORTION</h1>
-  <p class="subtitle">Analog Pedal Circuit Lab</p>
-  <button id="start-btn" type="button">Tap to start</button>
-</div>
-
-<!-- Headphone warning modal -->
-<div class="modal-back hidden" id="headphone-modal">
-  <div class="modal">
-    <h2>Headphones on?</h2>
-    <p>Live mic input through speakers will feed back. Plug in headphones before turning the mic on.</p>
-    <div class="actions">
-      <button id="hp-cancel" type="button">Cancel</button>
-      <button id="hp-ok" class="primary" type="button">Headphones are on</button>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Dowdy Distortion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600&family=Big+Shoulders+Display:wght@600;800&family=Martian+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/workbench.css" />
+  </head>
+  <body>
+    <div class="start-gate" id="start-gate">
+      <h1>Dowdy<br />Distortion</h1>
+      <p>Analog pedal lab</p>
+      <button id="start-button" type="button">Tap to start</button>
     </div>
-  </div>
-</div>
 
-<header class="topbar">
-  <div class="brand">
-    <span class="title">DOWDY DISTORTION</span>
-    <span class="sub">Analog Pedal Lab</span>
-  </div>
-  <div class="topbar-controls">
-    <div>
-      <span class="seg-label">Source</span>
-      <div class="seg" id="source-seg">
-        <button data-source="tone" class="active" type="button">Test tone</button>
-        <button data-source="mic" type="button">Mic</button>
-        <button data-source="file" type="button">File</button>
-      </div>
-      <input id="file-input" type="file" accept="audio/*" style="display:none">
-    </div>
-    <div>
-      <span class="seg-label">A / B</span>
-      <div class="ab">
-        <button id="ab-save-a" class="save" type="button">→A</button>
-        <button id="ab-a" class="active" type="button">A</button>
-        <button id="ab-b" type="button">B</button>
-        <button id="ab-save-b" class="save" type="button">→B</button>
+    <div class="modal hidden" id="mic-warning" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <h2>Headphones on?</h2>
+        <p>Live mic input can feed back through speakers.</p>
+        <button id="mic-cancel" type="button">Cancel</button>
+        <button id="mic-confirm" class="accent" type="button">Use mic</button>
       </div>
     </div>
-  </div>
-</header>
 
-<main class="lab">
-  <div class="col-main">
-
-    <!-- Schematic -->
-    <section class="panel" id="schematic-wrap">
-      <p class="panel-title">Circuit Schematic — click any value to edit</p>
-      <div id="schematic-host"></div>
-    </section>
-
-    <!-- Controls -->
-    <section class="panel">
-      <p class="panel-title">Controls</p>
-      <div class="preset-row">
-        <span class="seg-label">Preset</span>
-        <select id="preset-select">
-          <option value="ts">Tube-Screamer-style</option>
-          <option value="fuzz">Fuzz-style</option>
-          <option value="boost">Boost-into-clip</option>
-          <option value="custom">Custom</option>
-        </select>
-        <button id="preset-reset" class="preset-reset" type="button">Reset</button>
-        <span class="seg-label" style="margin-left:14px">Diode</span>
-        <select id="diode-select">
-          <option value="si">Silicon (1N4148)</option>
-          <option value="ge">Germanium (1N34A)</option>
-          <option value="led">LED red</option>
-          <option value="custom">Custom Is / n</option>
-        </select>
-        <span class="seg-label" style="margin-left:14px">Symmetry</span>
-        <div class="seg" id="sym-seg">
-          <button data-sym="sym" class="active" type="button">Symmetric</button>
-          <button data-sym="asym" type="button">Asymmetric</button>
-        </div>
+    <header class="topbar">
+      <div class="brand">
+        <span>Dowdy Distortion</span>
+        <small>Pedal workbench</small>
       </div>
-
-      <div class="knobs" id="knob-row"></div>
-
-      <div class="bypass-row">
-        <button class="bypass-btn" data-bypass="clip" type="button">Bypass clipper</button>
-        <button class="bypass-btn" data-bypass="tone" type="button">Bypass tone</button>
-        <button class="bypass-btn" data-bypass="level" type="button">Bypass level</button>
+      <div class="source-bar" aria-label="Audio source">
+        <span>Source</span>
+        <button class="source active" data-source="tone" type="button">
+          Test tone
+        </button>
+        <button class="source" data-source="mic" type="button">Mic</button>
+        <button class="source" data-source="file" type="button">File</button>
+        <input id="file-input" type="file" accept="audio/*" hidden />
       </div>
-
-      <div class="raw-row" id="raw-row">
-        <div class="raw-slider">
-          <label>Is (saturation current)<span id="is-readout">4.0 nA</span></label>
-          <input type="range" id="is-slider" min="0" max="1000" value="500">
-        </div>
-        <div class="raw-slider">
-          <label>n (ideality factor)<span id="n-readout">1.90</span></label>
-          <input type="range" id="n-slider" min="100" max="250" value="190">
-        </div>
+      <div class="meters">
+        <span>IN <b id="input-meter">−∞</b></span
+        ><span>OUT <b id="output-meter">−∞</b></span>
       </div>
-    </section>
+    </header>
 
-    <!-- Scopes -->
-    <section class="panel">
-      <p class="panel-title">Oscilloscopes</p>
-      <div class="scopes">
-        <div class="scope">
-          <span class="scope-label">Input (pre-clipper)</span>
-          <canvas id="scope-in"></canvas>
+    <main class="workbench">
+      <section class="circuit-panel panel">
+        <div class="panel-heading">
+          <span>Circuit canvas</span><em id="status-line">Ready</em>
         </div>
-        <div class="scope">
-          <span class="scope-label">Output (post-level)</span>
-          <canvas id="scope-out"></canvas>
+        <svg
+          id="schematic"
+          viewBox="0 0 960 330"
+          aria-label="Active pedal circuit"
+        >
+          <defs>
+            <pattern
+              id="grid"
+              width="24"
+              height="24"
+              patternUnits="userSpaceOnUse"
+            >
+              <path
+                d="M24 0H0V24"
+                fill="none"
+                stroke="currentColor"
+                opacity=".08"
+              />
+            </pattern>
+          </defs>
+          <rect width="960" height="330" fill="url(#grid)" />
+          <g class="wire">
+            <path d="M54 160H135M275 160H365M525 160H655M815 160H900" />
+          </g>
+          <g class="jack">
+            <circle cx="42" cy="160" r="11" />
+            <text x="42" y="199">IN</text>
+          </g>
+          <g class="jack">
+            <circle cx="918" cy="160" r="11" />
+            <text x="918" y="199">OUT</text>
+          </g>
+          <g class="block gain">
+            <rect x="135" y="116" width="140" height="88" rx="4" />
+            <text x="205" y="145">GAIN</text>
+            <text class="value" x="205" y="177" id="sch-gain">4×</text>
+          </g>
+          <g class="block clip">
+            <rect x="365" y="116" width="160" height="88" rx="4" />
+            <text x="445" y="145" id="sch-clip-name">SHUNT CLIP</text>
+            <text class="value" x="445" y="177" id="sch-r1">10 kΩ</text>
+          </g>
+          <g class="block tone">
+            <rect x="655" y="116" width="160" height="88" rx="4" />
+            <text x="735" y="145" id="sch-tone-name">LOW PASS</text>
+            <text class="value" x="735" y="177" id="sch-tone">
+              10 kΩ · 47 nF
+            </text>
+          </g>
+          <text class="caption" x="205" y="245">simulation preamp</text>
+          <text class="caption" x="445" y="245">D1 · D2</text>
+          <text class="caption" x="735" y="245">R2 · C1</text>
+        </svg>
+        <div class="readout-strip">
+          <span>CLIP <b id="clip-readout">Si 1N4148</b></span
+          ><span>CUTOFF <b id="cutoff-readout">339 Hz</b></span
+          ><span>HARMONICS <b id="harmonic-readout">—</b></span>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Circuit analysis -->
-    <section class="panel" id="eng-plots-panel">
-      <p class="panel-title">Circuit Analysis</p>
-      <div class="eng-plots">
-        <div class="scope">
-          <span class="scope-label">Diode transfer curve  V<tspan>in</tspan> → V<tspan>out</tspan></span>
-          <canvas id="curve-plot"></canvas>
+      <aside class="rack panel">
+        <div class="panel-heading">
+          <span>Block rack</span
+          ><button id="reset-button" class="quiet" type="button">Reset</button>
         </div>
-        <div class="scope">
-          <span class="scope-label">Tone filter frequency response |H(f)|</span>
-          <canvas id="freq-plot"></canvas>
+        <label
+          >Gain block<select id="gain-block">
+            <option value="boost">Clean boost</option>
+            <option value="unity">Unity</option>
+          </select></label
+        >
+        <label
+          >Clipper<select id="clipper-block">
+            <option value="shunt">Shunt diode</option>
+            <option value="feedback">Feedback diode</option>
+          </select></label
+        >
+        <label
+          >Tone block<select id="tone-block">
+            <option value="lowpass">Low pass</option>
+            <option value="highpass">High pass</option>
+            <option value="tilt">Tilt shelf</option>
+          </select></label
+        >
+        <div class="diode-row">
+          <label
+            >Diode<select id="diode-select">
+              <option value="si">Silicon 1N4148</option>
+              <option value="ge">Germanium 1N34A</option>
+              <option value="led">Red LED</option>
+              <option value="custom">Custom</option>
+            </select></label
+          ><button id="symmetry-button" type="button">Symmetric</button>
         </div>
-      </div>
-    </section>
+        <div class="knob-grid" id="knob-grid"></div>
+        <div class="custom-diode hidden" id="custom-diode">
+          <label
+            >Is <input id="is-slider" type="range" min="0" max="1000" /></label
+          ><label
+            >n <input id="n-slider" type="range" min="100" max="250"
+          /></label>
+        </div>
+        <div class="bypass-row">
+          <button data-bypass="clip" type="button">Bypass clip</button
+          ><button data-bypass="tone" type="button">Bypass tone</button
+          ><button data-bypass="level" type="button">Bypass level</button>
+        </div>
+      </aside>
 
-  </div>
+      <section class="measurements panel">
+        <div class="panel-heading">
+          <span>Measurements</span>
+          <div class="compare-selects">
+            <select id="overlay-a"></select
+            ><select id="overlay-b"></select>
+          </div>
+        </div>
+        <div class="plot-grid">
+          <figure>
+            <figcaption>Input scope</figcaption>
+            <canvas id="scope-in"></canvas>
+          </figure>
+          <figure>
+            <figcaption>Output scope</figcaption>
+            <canvas id="scope-out"></canvas>
+          </figure>
+          <figure>
+            <figcaption>Output spectrum</figcaption>
+            <canvas id="spectrum"></canvas>
+          </figure>
+          <figure>
+            <figcaption>Transfer curve</figcaption>
+            <canvas id="transfer"></canvas>
+          </figure>
+          <figure>
+            <figcaption>Frequency response</figcaption>
+            <canvas id="response"></canvas>
+          </figure>
+          <figure class="sweep-figure">
+            <figcaption>
+              Sweep lab
+              <span
+                ><select id="sweep-part">
+                  <option value="driveR">R1</option>
+                  <option value="toneR">R2</option>
+                  <option value="toneC">C1</option></select
+                ><button id="run-sweep" type="button">Run</button></span
+              >
+            </figcaption>
+            <canvas id="sweep"></canvas>
+            <div id="sweep-values" class="sweep-values"></div>
+          </figure>
+        </div>
+      </section>
 
-  <aside class="col-side">
-    <!-- Build sheet -->
-    <section class="panel">
-      <p class="panel-title">Build Sheet</p>
-      <table class="parts-table">
-        <thead><tr><th>Ref</th><th>Component</th><th>Value</th></tr></thead>
-        <tbody id="parts-body"></tbody>
-      </table>
-      <div class="cutoff-note" id="cutoff-note"></div>
-      <button id="copy-btn" class="copy-btn" type="button">Copy parts list</button>
-    </section>
-  </aside>
-</main>
+      <aside class="builds panel">
+        <div class="panel-heading"><span>Build library</span></div>
+        <div class="build-save">
+          <input
+            id="build-name"
+            maxlength="32"
+            placeholder="Build name"
+          /><button id="save-build" class="accent" type="button">Save</button>
+        </div>
+        <div id="build-list" class="build-list"></div>
+        <div class="parts-heading">Active parts</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Ref</th>
+              <th>Part</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody id="parts-body"></tbody>
+        </table>
+        <div class="cutoff" id="cutoff-note"></div>
+        <button id="copy-parts" class="quiet" type="button">
+          Copy parts list
+        </button>
+      </aside>
+    </main>
 
-<footer class="foot">DOWDY DISTORTION · made with solder fumes &amp; love</footer>
-
-<script src="app.js"></script>
-</body>
+    <script defer src="js/circuit.js"></script>
+    <script defer src="js/builds.js"></script>
+    <script defer src="js/audio.js"></script>
+    <script defer src="js/plots.js"></script>
+    <script defer src="js/ui.js"></script>
+    <script defer src="js/app.js"></script>
+  </body>
 </html>

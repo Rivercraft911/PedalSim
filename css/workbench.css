@@ -1,0 +1,392 @@
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 13px 24px;
+  border-bottom: 1px solid var(--line);
+  background: #1b1a15;
+}
+.brand {
+  display: grid;
+  min-width: 205px;
+  font:
+    800 29px/0.8 "Big Shoulders Display",
+    sans-serif;
+  text-transform: uppercase;
+}
+.brand small {
+  margin-top: 6px;
+  color: var(--amber);
+  font:
+    9px "Martian Mono",
+    monospace;
+  letter-spacing: 0.2em;
+}
+.source-bar {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+  font:
+    10px "Martian Mono",
+    monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.source-bar > span {
+  color: var(--muted);
+  margin-right: 4px;
+}
+.source {
+  padding: 6px 9px;
+}
+.source.active {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #17130a;
+}
+.meters {
+  margin-left: auto;
+  display: flex;
+  gap: 12px;
+  font:
+    10px "Martian Mono",
+    monospace;
+  color: var(--muted);
+}
+.meters b {
+  color: var(--amber);
+  font-weight: 600;
+}
+.workbench {
+  max-width: 1600px;
+  margin: auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.75fr);
+  grid-template-areas: "circuit rack" "measure builds";
+  gap: 16px;
+}
+.circuit-panel {
+  grid-area: circuit;
+  padding: 14px;
+  min-width: 0;
+}
+.rack {
+  grid-area: rack;
+  padding: 14px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+.measurements {
+  grid-area: measure;
+  padding: 14px;
+  min-width: 0;
+}
+.builds {
+  grid-area: builds;
+  padding: 14px;
+  min-width: 0;
+}
+#schematic {
+  display: block;
+  width: 100%;
+  min-height: 260px;
+  color: var(--paper);
+}
+#schematic .wire path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+#schematic .jack circle {
+  fill: var(--paper);
+}
+.jack text,
+.caption {
+  fill: var(--muted);
+  font:
+    10px "Martian Mono",
+    monospace;
+  text-anchor: middle;
+}
+#schematic .block rect {
+  fill: #191914;
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+.block text {
+  fill: var(--muted);
+  font:
+    10px "Martian Mono",
+    monospace;
+  letter-spacing: 0.12em;
+  text-anchor: middle;
+}
+.block .value {
+  fill: var(--amber-2);
+  font-weight: 600;
+}
+.readout-strip {
+  display: flex;
+  gap: 20px;
+  padding: 10px 4px 0;
+  border-top: 1px solid rgba(233, 225, 202, 0.1);
+  color: var(--muted);
+  font:
+    10px "Martian Mono",
+    monospace;
+  letter-spacing: 0.1em;
+}
+.readout-strip b {
+  color: var(--paper);
+}
+.diode-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+.diode-row button {
+  padding: 8px;
+}
+.knob-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.knob {
+  padding: 10px 4px;
+  text-align: center;
+  border: 1px solid rgba(233, 225, 202, 0.08);
+}
+.knob-name {
+  color: var(--muted);
+  font:
+    9px "Martian Mono",
+    monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.knob svg {
+  width: 75px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.knob-value {
+  color: var(--amber-2);
+  font:
+    11px "Martian Mono",
+    monospace;
+}
+.custom-diode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.custom-diode input {
+  width: 100%;
+  padding: 0;
+}
+.bypass-row {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.bypass-row button {
+  flex: 1;
+  padding: 6px;
+  color: var(--muted);
+  font:
+    9px "Martian Mono",
+    monospace;
+  text-transform: uppercase;
+}
+.bypass-row .on {
+  border-color: var(--red);
+  color: var(--red);
+}
+.compare-selects {
+  display: flex;
+  gap: 5px;
+}
+.compare-selects select {
+  width: 112px;
+  padding: 5px;
+  font-size: 10px;
+}
+.plot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.plot-grid figure {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid rgba(233, 225, 202, 0.09);
+  padding: 8px;
+  background: #171711;
+}
+.plot-grid figcaption {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font:
+    10px "Martian Mono",
+    monospace;
+  text-transform: uppercase;
+}
+.plot-grid figcaption select,
+.plot-grid figcaption button {
+  padding: 3px 5px;
+  font-size: 9px;
+}
+.sweep-figure {
+  grid-column: span 2;
+}
+.sweep-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding-top: 8px;
+}
+.sweep-values button {
+  padding: 4px 6px;
+  color: var(--muted);
+  font:
+    9px "Martian Mono",
+    monospace;
+}
+.sweep-values button:hover {
+  color: var(--amber);
+}
+.build-save {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0;
+}
+.build-save input {
+  min-width: 0;
+  flex: 1;
+}
+.build-list {
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  overflow: auto;
+}
+.build-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 4px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(233, 225, 202, 0.08);
+}
+.build-item .name {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  color: var(--paper);
+}
+.build-item button {
+  padding: 4px 5px;
+  font-size: 9px;
+}
+.parts-heading {
+  margin: 18px 0 7px;
+  color: var(--muted);
+  font:
+    10px "Martian Mono",
+    monospace;
+  text-transform: uppercase;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font:
+    10px "Martian Mono",
+    monospace;
+}
+th {
+  color: var(--muted);
+  text-align: left;
+  font-weight: 400;
+}
+td,
+th {
+  padding: 7px 3px;
+  border-bottom: 1px solid rgba(233, 225, 202, 0.08);
+}
+td:last-child {
+  color: var(--amber-2);
+  text-align: right;
+}
+.cutoff {
+  margin: 10px 0;
+  color: var(--muted);
+  font:
+    10px "Martian Mono",
+    monospace;
+  line-height: 1.5;
+}
+@media (max-width: 1020px) {
+  .topbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .meters {
+    margin-left: 0;
+  }
+  .workbench {
+    grid-template-columns: 1fr;
+    grid-template-areas: "circuit" "rack" "measure" "builds";
+  }
+  .rack {
+    grid-template-columns: repeat(3, 1fr);
+    align-items: end;
+  }
+  .rack .panel-heading,
+  .rack .knob-grid,
+  .rack .bypass-row,
+  .rack .custom-diode {
+    grid-column: 1/-1;
+  }
+}
+@media (max-width: 620px) {
+  .topbar {
+    padding: 12px;
+    gap: 12px;
+  }
+  .workbench {
+    padding: 10px;
+  }
+  .plot-grid {
+    grid-template-columns: 1fr;
+  }
+  .sweep-figure {
+    grid-column: auto;
+  }
+  .rack {
+    grid-template-columns: 1fr;
+  }
+  .rack > * {
+    grid-column: auto !important;
+  }
+  .knob-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .readout-strip {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}
