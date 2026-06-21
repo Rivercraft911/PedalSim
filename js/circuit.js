@@ -18,14 +18,15 @@
     tilt: [-18, 18],
   };
   const diodes = {
-    si: { Is: 4e-9, n: 1.9, label: "Si 1N4148" },
-    ge: { Is: 200e-9, n: 1.7, label: "Ge 1N34A" },
-    led: { Is: 1e-12, n: 2, label: "Red LED" },
+    si: { Is: 4e-9, n: 1.9, vf: 0.62, label: "Si 1N4148" },
+    ge: { Is: 200e-9, n: 1.7, vf: 0.3, label: "Ge 1N34A" },
+    schottky: { Is: 2e-6, n: 1.25, vf: 0.25, label: "Schottky BAT41" },
+    led: { Is: 1e-12, n: 2, vf: 1.8, label: "Red LED" },
+    greenLed: { Is: 6e-13, n: 2, vf: 2.15, label: "Green LED" },
+    blueLed: { Is: 2e-13, n: 2.1, vf: 2.7, label: "Blue LED" },
   };
   const E12 = [1, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2];
-  const caps = [
-    1, 2.2, 3.3, 4.7, 6.8, 10, 15, 22, 33, 47, 68, 100, 150, 220, 330, 470, 680,
-  ];
+  const caps = E12;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const logValue = (min, max, t) => min * Math.pow(max / min, clamp(t, 0, 1));
   const logNorm = (min, max, value) =>
@@ -60,7 +61,7 @@
           : `${trim((v * 1e12).toFixed(0))} pF`;
     return String(v);
   };
-  const trim = (value) => value.replace(/\.?0+$/, "");
+  const trim = (value) => value.replace(/(\.\d*?[1-9])0+$|\.0+$/, "$1");
   const parse = (raw, current, kind) => {
     const clean = raw.trim().replace(/Ω|ohms?|f|hz/gi, "");
     const match = clean.match(/^([0-9]*\.?[0-9]+)\s*([pnumkmgµ]?)$/i);
@@ -111,14 +112,19 @@
     return out;
   };
   const curve = (state) => {
-    const { Is, n } = params(state);
+    const { Is, n, vf = 0.62 } = params(state);
     const points = new Float32Array(1024);
     for (let i = 0; i < points.length; i++) {
       const vin = -3 + (6 * i) / (points.length - 1);
-      const out =
-        state.clipperBlock === "feedback"
-          ? Math.tanh(vin * 1.45) * 0.82
-          : solveShunt(vin, state.driveR, Is, n, !state.symmetric);
+      let out = solveShunt(vin, state.driveR, Is, n, !state.symmetric);
+      if (state.clipperBlock === "feedback") {
+        const threshold = vf * (state.symmetric ? 1 : 1.6);
+        out = Math.tanh(vin / Math.max(0.08, threshold)) * threshold;
+      }
+      if (state.clipperBlock === "hard") {
+        const threshold = vf * (state.symmetric ? 1 : 1.5);
+        out = clamp(vin, -threshold, threshold);
+      }
       points[i] = clamp(out / 3, -1, 1);
     }
     return points;

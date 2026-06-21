@@ -12,7 +12,13 @@
     }
     return builds;
   };
-  const persist = () => localStorage.setItem(key, JSON.stringify(builds));
+  const persist = () => {
+    try {
+      localStorage.setItem(key, JSON.stringify(builds));
+    } catch (_) {
+      // The current browser session still keeps its in-memory build library.
+    }
+  };
   const save = (name, state = D.state) => {
     const clean = (name || `Build ${builds.length + 1}`).trim().slice(0, 32);
     const build = {

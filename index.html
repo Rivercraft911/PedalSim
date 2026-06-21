@@ -13,8 +13,8 @@
       href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600&family=Big+Shoulders+Display:wght@600;800&family=Martian+Mono:wght@400;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/base.css" />
-    <link rel="stylesheet" href="css/workbench.css" />
+    <link rel="stylesheet" href="css/base.css?v=4" />
+    <link rel="stylesheet" href="css/workbench.css?v=4" />
   </head>
   <body>
     <div class="start-gate" id="start-gate">
@@ -57,59 +57,112 @@
         <div class="panel-heading">
           <span>Circuit canvas</span><em id="status-line">Ready</em>
         </div>
-        <svg
-          id="schematic"
-          viewBox="0 0 960 330"
-          aria-label="Active pedal circuit"
-        >
-          <defs>
-            <pattern
-              id="grid"
-              width="24"
-              height="24"
-              patternUnits="userSpaceOnUse"
-            >
+        <div class="schematic-scroll">
+          <svg
+            id="schematic"
+            viewBox="0 0 960 360"
+            role="img"
+            aria-label="Active pedal circuit schematic"
+          >
+            <defs>
+              <pattern
+                id="grid"
+                width="24"
+                height="24"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M24 0H0V24"
+                  fill="none"
+                  stroke="currentColor"
+                  opacity=".08"
+                />
+              </pattern>
+            </defs>
+            <rect width="960" height="360" fill="url(#grid)" />
+            <g class="circuit-stage" data-stage="gain">
+              <line class="sch-wire" x1="46" y1="164" x2="105" y2="164" />
+              <circle class="sch-jack" cx="34" cy="164" r="11" />
+              <circle class="sch-jack-dot" cx="34" cy="164" r="3" />
+              <text class="sch-label" x="34" y="199">INPUT</text>
               <path
-                d="M24 0H0V24"
-                fill="none"
-                stroke="currentColor"
-                opacity=".08"
+                class="sch-component"
+                d="M105 164h10l7-13 14 26 14-26 14 26 14-26 14 26 7-13h14"
               />
-            </pattern>
-          </defs>
-          <rect width="960" height="330" fill="url(#grid)" />
-          <g class="wire">
-            <path d="M54 160H135M275 160H365M525 160H655M815 160H900" />
-          </g>
-          <g class="jack">
-            <circle cx="42" cy="160" r="11" />
-            <text x="42" y="199">IN</text>
-          </g>
-          <g class="jack">
-            <circle cx="918" cy="160" r="11" />
-            <text x="918" y="199">OUT</text>
-          </g>
-          <g class="block gain">
-            <rect x="135" y="116" width="140" height="88" rx="4" />
-            <text x="205" y="145">GAIN</text>
-            <text class="value" x="205" y="177" id="sch-gain">4×</text>
-          </g>
-          <g class="block clip">
-            <rect x="365" y="116" width="160" height="88" rx="4" />
-            <text x="445" y="145" id="sch-clip-name">SHUNT CLIP</text>
-            <text class="value" x="445" y="177" id="sch-r1">10 kΩ</text>
-          </g>
-          <g class="block tone">
-            <rect x="655" y="116" width="160" height="88" rx="4" />
-            <text x="735" y="145" id="sch-tone-name">LOW PASS</text>
-            <text class="value" x="735" y="177" id="sch-tone">
-              10 kΩ · 47 nF
+              <text class="sch-label" x="152" y="131">R1 DRIVE</text>
+              <text class="sch-value" data-edit="driveR" x="152" y="195">
+                10 kΩ
+              </text>
+            </g>
+            <g class="circuit-stage" data-stage="clip">
+              <line class="sch-wire" x1="213" y1="164" x2="352" y2="164" />
+              <circle class="sch-node" cx="213" cy="164" r="3.5" />
+              <line class="sch-wire" x1="213" y1="164" x2="213" y2="212" />
+              <line class="sch-wire" x1="181" y1="212" x2="245" y2="212" />
+              <line class="sch-wire" x1="181" y1="212" x2="181" y2="230" />
+              <polygon class="sch-diode" points="169,230 193,230 181,248" />
+              <line class="sch-component" x1="169" y1="252" x2="193" y2="252" />
+              <line class="sch-wire" x1="181" y1="252" x2="181" y2="282" />
+              <line class="sch-wire" x1="245" y1="212" x2="245" y2="230" />
+              <line class="sch-component" x1="233" y1="230" x2="257" y2="230" />
+              <polygon class="sch-diode" points="233,252 257,252 245,230" />
+              <line class="sch-wire" x1="245" y1="252" x2="245" y2="282" />
+              <line class="sch-wire" x1="181" y1="282" x2="245" y2="282" />
+              <line class="sch-wire" x1="213" y1="282" x2="213" y2="300" />
+              <path class="sch-ground" d="M198 300h30m-24 7h18m-12 7h6" />
+              <text class="sch-label" id="sch-clip-name" x="213" y="326">
+                SHUNT CLIPPER
+              </text>
+              <text class="sch-value" id="sch-diode" x="213" y="344">
+                Si 1N4148 · symmetric
+              </text>
+            </g>
+            <g class="circuit-stage" data-stage="tone">
+              <polygon class="sch-component" points="352,139 352,189 395,164" />
+              <text class="sch-label" x="373" y="126">BUFFER</text>
+              <line class="sch-wire" x1="395" y1="164" x2="448" y2="164" />
+              <path
+                class="sch-component"
+                d="M448 164h10l7-13 14 26 14-26 14 26 14-26 14 26 7-13h14"
+              />
+              <text class="sch-label" x="495" y="131">R2 TONE</text>
+              <text class="sch-value" data-edit="toneR" x="495" y="195">
+                10 kΩ
+              </text>
+              <line class="sch-wire" x1="556" y1="164" x2="704" y2="164" />
+              <circle class="sch-node" cx="556" cy="164" r="3.5" />
+              <line class="sch-wire" x1="556" y1="164" x2="556" y2="218" />
+              <line class="sch-component" x1="536" y1="218" x2="576" y2="218" />
+              <line class="sch-component" x1="536" y1="230" x2="576" y2="230" />
+              <line class="sch-wire" x1="556" y1="230" x2="556" y2="284" />
+              <path class="sch-ground" d="M541 284h30m-24 7h18m-12 7h6" />
+              <text class="sch-label" x="588" y="223">C1 TONE</text>
+              <text class="sch-value" data-edit="toneC" x="588" y="242">
+                47 nF
+              </text>
+              <text class="sch-label" id="sch-tone-name" x="604" y="326">
+                RC LOW-PASS
+              </text>
+            </g>
+            <g class="circuit-stage" data-stage="level">
+              <polygon class="sch-component" points="704,144 704,184 744,164" />
+              <text class="sch-label" x="724" y="131">LEVEL</text>
+              <text class="sch-value" data-edit="level" x="724" y="205">
+                0.9×
+              </text>
+              <line class="sch-wire" x1="744" y1="164" x2="895" y2="164" />
+              <circle class="sch-jack" cx="909" cy="164" r="11" />
+              <circle class="sch-jack-dot" cx="909" cy="164" r="3" />
+              <text class="sch-label" x="909" y="199">OUTPUT</text>
+            </g>
+            <text class="sch-caption" id="sch-gain" x="151" y="102">
+              CLEAN BOOST · 4×
             </text>
-          </g>
-          <text class="caption" x="205" y="245">simulation preamp</text>
-          <text class="caption" x="445" y="245">D1 · D2</text>
-          <text class="caption" x="735" y="245">R2 · C1</text>
-        </svg>
+            <text class="sch-caption" x="480" y="342">
+              Click an amber value to enter an exact component value.
+            </text>
+          </svg>
+        </div>
         <div class="readout-strip">
           <span>CLIP <b id="clip-readout">Si 1N4148</b></span
           ><span>CUTOFF <b id="cutoff-readout">339 Hz</b></span
@@ -126,12 +179,14 @@
           >Gain block<select id="gain-block">
             <option value="boost">Clean boost</option>
             <option value="unity">Unity</option>
+            <option value="pad">Input pad</option>
           </select></label
         >
         <label
           >Clipper<select id="clipper-block">
             <option value="shunt">Shunt diode</option>
             <option value="feedback">Feedback diode</option>
+            <option value="hard">Hard clipper</option>
           </select></label
         >
         <label
@@ -146,7 +201,10 @@
             >Diode<select id="diode-select">
               <option value="si">Silicon 1N4148</option>
               <option value="ge">Germanium 1N34A</option>
+              <option value="schottky">Schottky BAT41</option>
               <option value="led">Red LED</option>
+              <option value="greenLed">Green LED</option>
+              <option value="blueLed">Blue LED</option>
               <option value="custom">Custom</option>
             </select></label
           ><button id="symmetry-button" type="button">Symmetric</button>
@@ -240,11 +298,11 @@
       </aside>
     </main>
 
-    <script defer src="js/circuit.js"></script>
-    <script defer src="js/builds.js"></script>
-    <script defer src="js/audio.js"></script>
-    <script defer src="js/plots.js"></script>
-    <script defer src="js/ui.js"></script>
-    <script defer src="js/app.js"></script>
+    <script defer src="js/circuit.js?v=4"></script>
+    <script defer src="js/builds.js?v=4"></script>
+    <script defer src="js/audio.js?v=4"></script>
+    <script defer src="js/plots.js?v=4"></script>
+    <script defer src="js/ui.js?v=4"></script>
+    <script defer src="js/app.js?v=4"></script>
   </body>
 </html>

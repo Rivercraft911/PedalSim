@@ -110,7 +110,12 @@
       nodes.shaper.curve = C.curve(D.state);
       curveKey = key;
     }
-    const gain = D.state.gainBlock === "unity" ? 1 : D.state.inputGain;
+    const gain =
+      D.state.gainBlock === "unity"
+        ? 1
+        : D.state.gainBlock === "pad"
+          ? 0.45
+          : D.state.inputGain;
     nodes.preamp.gain.setTargetAtTime(gain / 3, ctx.currentTime, 0.01);
     nodes.level.gain.setTargetAtTime(D.state.level, ctx.currentTime, 0.01);
     nodes.filter.type =

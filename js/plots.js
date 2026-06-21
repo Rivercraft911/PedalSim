@@ -9,8 +9,12 @@
   const fit = (el) => {
     const dpr = devicePixelRatio || 1,
       box = el.getBoundingClientRect();
-    el.width = Math.max(1, box.width * dpr);
-    el.height = Math.max(1, box.height * dpr);
+    const width = Math.max(1, Math.round(box.width * dpr));
+    const height = Math.max(1, Math.round(box.height * dpr));
+    if (el.width !== width || el.height !== height) {
+      el.width = width;
+      el.height = height;
+    }
     return el.getContext("2d");
   };
   const grid = (g, w, h) => {
@@ -191,9 +195,6 @@
     scope("scope-in", data.input);
     scope("scope-out", data.output);
     spectrum(data.output);
-    transfer();
-    response();
-    sweep();
     document.getElementById("input-meter").textContent = niceDb(db(data.input));
     document.getElementById("output-meter").textContent = niceDb(
       db(data.output),
@@ -207,6 +208,9 @@
     Number.isFinite(value) ? `${Math.round(value)} dB` : "−∞";
   const start = () => {
     cancelAnimationFrame(raf);
+    transfer();
+    response();
+    sweep();
     render();
     window.addEventListener("resize", () => {
       transfer();
