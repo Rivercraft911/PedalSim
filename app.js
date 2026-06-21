@@ -12,6 +12,7 @@ const CURVE_N = 2048;        // samples in baked curve
 
 // ----- Parameter ranges -----
 const RANGE = {
+  inputGain: { min: 0.5,   max: 20,    scale: 'log',    unit: 'x', kind: 'gain' },
   driveR: { min: 1e3,   max: 470e3, scale: 'log',    unit: 'Ω', kind: 'R' },
   toneR:  { min: 1e3,   max: 100e3, scale: 'log',    unit: 'Ω', kind: 'R' },
   toneC:  { min: 1e-9,  max: 470e-9,scale: 'log',    unit: 'F', kind: 'C' },
@@ -37,6 +38,7 @@ const PRESETS = {
 // =====================================================================
 const state = {
   preset:   'ts',
+  inputGain:4,
   driveR:   10e3,
   diode:    'si',
   symmetric:true,
@@ -47,7 +49,6 @@ const state = {
   level:    0.9,
   bypass:   { clip: false, tone: false, level: false },
   source:   'tone',
-  mode:     'eng',     // 'eng' | 'easy'
   abSlot:   'A',
   micWarned:false,
 };
@@ -63,6 +64,8 @@ let sourceNode = null;
 let micStream = null;
 let fileBuffer = null;
 let testToneSeq = null;
+let cleanGuitarAudio = null;
+let cleanGuitarNode = null;
 
 function ensureCtx() {
   if (!ctx) {
@@ -77,7 +80,7 @@ function buildGraph() {
   nodes = {
     inGain:     c.createGain(),
     analyserIn: c.createAnalyser(),
-    shaperGain: c.createGain(),   // pre-clipper gain (Drive coupling) + 1/Vmax
+    shaperGain: c.createGain(),   // simulation input gain, normalized for the curve
     shaper:     c.createWaveShaper(),
     filter:     c.createBiquadFilter(),
     levelGain:  c.createGain(),
@@ -196,17 +199,6 @@ function bakeDiodeCurve({ R, Is, n, symmetric }) {
 }
 
 // =====================================================================
-// Drive coupling: lower R → more pre-clip gain (mimics op-amp before clipping).
-// =====================================================================
-function drivePreGain(R) {
-  const t = (Math.log(R) - Math.log(RANGE.driveR.min))
-          / (Math.log(RANGE.driveR.max) - Math.log(RANGE.driveR.min));
-  // R=min → preGain≈60. R=max → preGain≈1.5.
-  const logG = Math.log(1.5) + (1 - t) * (Math.log(60) - Math.log(1.5));
-  return Math.exp(logG);
-}
-
-// =====================================================================
 // Apply state → audio + DOM
 // =====================================================================
 let lastCurveKey = '';
@@ -228,8 +220,7 @@ function applyAudio() {
     nodes.shaper.curve = cachedCurve;
     drawTransferCurve();
   }
-  const pre = drivePreGain(state.driveR);
-  nodes.shaperGain.gain.setTargetAtTime(pre / Vmax, ctx.currentTime, 0.01);
+  nodes.shaperGain.gain.setTargetAtTime(state.inputGain / Vmax, ctx.currentTime, 0.01);
 
   const fc = 1 / (2 * Math.PI * state.toneR * state.toneC);
   nodes.filter.frequency.setTargetAtTime(clamp(fc, 20, 20000), ctx.currentTime, 0.01);
@@ -254,10 +245,11 @@ function applyAll() {
 // Knobs (hand-rolled SVG, vertical drag, log/linear-aware)
 // =====================================================================
 const KNOB_DEFS = [
-  { key: 'driveR', label: 'Drive', stateKey: 'driveR', range: RANGE.driveR, format: fmtResistor },
-  { key: 'toneR',  label: 'Tone R', stateKey: 'toneR', range: RANGE.toneR,  format: fmtResistor },
-  { key: 'toneC',  label: 'Tone C', stateKey: 'toneC', range: RANGE.toneC,  format: fmtCapacitor },
-  { key: 'level',  label: 'Level',  stateKey: 'level', range: RANGE.level,  format: v => v.toFixed(2) + 'x' },
+  { key: 'inputGain', label: 'Input Gain', stateKey: 'inputGain', range: RANGE.inputGain, format: fmtGain },
+  { key: 'driveR',    label: 'R1 Drive',  stateKey: 'driveR',    range: RANGE.driveR,    format: fmtResistor },
+  { key: 'toneR',     label: 'R2 Tone',   stateKey: 'toneR',     range: RANGE.toneR,     format: fmtResistor },
+  { key: 'toneC',     label: 'C1 Tone',   stateKey: 'toneC',     range: RANGE.toneC,     format: fmtCapacitor },
+  { key: 'level',     label: 'Level',     stateKey: 'level',     range: RANGE.level,     format: fmtGain },
 ];
 
 const knobEls = {};
@@ -271,11 +263,26 @@ function buildKnobs() {
     wrap.innerHTML = `
       <span class="name">${def.label}</span>
       <svg viewBox="0 0 80 80" tabindex="0" data-knob="${def.key}">
-        <circle cx="40" cy="40" r="34" fill="#1a1815" stroke="#6E6A57" stroke-width="1.2"/>
+        <defs>
+          <radialGradient id="kbody-${def.key}" cx="38%" cy="32%" r="72%">
+            <stop offset="0%" stop-color="#4c473b"/>
+            <stop offset="46%" stop-color="#2f2c25"/>
+            <stop offset="100%" stop-color="#15130e"/>
+          </radialGradient>
+          <radialGradient id="kskirt-${def.key}" cx="40%" cy="30%" r="78%">
+            <stop offset="0%" stop-color="#2c2922"/>
+            <stop offset="100%" stop-color="#100e0a"/>
+          </radialGradient>
+        </defs>
+        <ellipse cx="40" cy="44" rx="32" ry="31" fill="rgba(0,0,0,0.5)"/>
+        <circle cx="40" cy="40" r="33" fill="url(#kskirt-${def.key})" stroke="#6E6A57" stroke-width="0.8"/>
         <g class="tick-group"></g>
-        <circle cx="40" cy="40" r="26" fill="#26241F" stroke="#3f3d33" stroke-width="1"/>
-        <line class="indicator" x1="40" y1="40" x2="40" y2="20" stroke="#D98E04" stroke-width="2.4" stroke-linecap="round"/>
-        <circle cx="40" cy="40" r="2.5" fill="#D98E04"/>
+        <path class="knob-arc" fill="none" stroke="#F2A413" stroke-width="3" stroke-linecap="round" d=""/>
+        <circle cx="40" cy="40" r="24" fill="url(#kbody-${def.key})" stroke="#000" stroke-opacity="0.45" stroke-width="1"/>
+        <circle cx="40" cy="40" r="24" fill="none" stroke="#EDE6D2" stroke-opacity="0.10" stroke-width="1"/>
+        <circle cx="40" cy="40" r="17" fill="none" stroke="#000" stroke-opacity="0.18" stroke-width="1"/>
+        <line class="indicator" x1="40" y1="40" x2="40" y2="21" stroke="#F2A413" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="40" cy="40" r="2.4" fill="#F2A413"/>
       </svg>
       <span class="val">--</span>
     `;
@@ -283,7 +290,7 @@ function buildKnobs() {
     const tg = wrap.querySelector('.tick-group');
     for (let i = 0; i <= 10; i++) {
       const ang = -135 + (i / 10) * 270;
-      const r1 = 35, r2 = 38;
+      const r1 = 34.5, r2 = 37.5;
       const x1 = 40 + r1 * Math.sin(ang * Math.PI / 180);
       const y1 = 40 - r1 * Math.cos(ang * Math.PI / 180);
       const x2 = 40 + r2 * Math.sin(ang * Math.PI / 180);
@@ -299,6 +306,7 @@ function buildKnobs() {
       wrap,
       svg: wrap.querySelector('svg'),
       indicator: wrap.querySelector('.indicator'),
+      arc: wrap.querySelector('.knob-arc'),
       val: wrap.querySelector('.val'),
       def,
     };
@@ -320,6 +328,17 @@ function normToValue(t, range) {
   return range.min + t * (range.max - range.min);
 }
 
+function knobArcPath(t) {
+  const start = -135, end = -135 + clamp(t, 0, 1) * 270;
+  const r = 29, cx = 40, cy = 40;
+  const p = (a) => [cx + r * Math.sin(a * Math.PI / 180), cy - r * Math.cos(a * Math.PI / 180)];
+  const [x1, y1] = p(start);
+  const [x2, y2] = p(end);
+  if (end - start < 0.5) return `M ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  const large = (end - start) > 180 ? 1 : 0;
+  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+}
+
 function renderKnobs() {
   for (const def of KNOB_DEFS) {
     const v = state[def.stateKey];
@@ -327,6 +346,7 @@ function renderKnobs() {
     const ang = -135 + t * 270; // -135 = full left, +135 = full right
     const el = knobEls[def.key];
     el.indicator.setAttribute('transform', `rotate(${ang} 40 40)`);
+    if (el.arc) el.arc.setAttribute('d', knobArcPath(t));
     el.val.textContent = def.format(v);
   }
 }
@@ -379,9 +399,11 @@ function attachKnobDrag(def) {
 }
 
 function setParam(key, val) {
+  if (key === 'driveR' || key === 'toneR') val = snapToE12(val);
+  else if (key === 'toneC') val = snapToStandardCap(val);
   state[key] = val;
   // If a value diverges from any preset, mark Custom.
-  if (state.preset !== 'custom' && key !== 'level') {
+  if (state.preset !== 'custom' && key !== 'level' && key !== 'inputGain') {
     const p = PRESETS[state.preset];
     if (p && Math.abs(p[key] - val) > 1e-6) state.preset = 'custom';
   }
@@ -391,20 +413,24 @@ function setParam(key, val) {
 // =====================================================================
 // Value formatting & parsing
 // =====================================================================
+function trimNum(s) {
+  return s.indexOf('.') >= 0 ? s.replace(/\.?0+$/, '') : s;
+}
 function fmtResistor(R) {
-  if (R >= 1e6) return (R / 1e6).toFixed(R >= 10e6 ? 0 : 2).replace(/\.?0+$/, '') + ' MΩ';
-  if (R >= 1e3) return (R / 1e3).toFixed(R >= 100e3 ? 0 : (R >= 10e3 ? 1 : 2)).replace(/\.?0+$/, '') + ' kΩ';
+  if (R >= 1e6) return trimNum((R / 1e6).toFixed(R >= 10e6 ? 0 : 2)) + ' MΩ';
+  if (R >= 1e3) return trimNum((R / 1e3).toFixed(R >= 100e3 ? 0 : (R >= 10e3 ? 1 : 2))) + ' kΩ';
   return R.toFixed(0) + ' Ω';
 }
 function fmtCapacitor(C) {
-  if (C >= 1e-6)  return (C * 1e6).toFixed(2).replace(/\.?0+$/, '') + ' µF';
-  if (C >= 1e-9)  return (C * 1e9).toFixed(C >= 100e-9 ? 0 : 1).replace(/\.?0+$/, '') + ' nF';
+  if (C >= 1e-6)  return trimNum((C * 1e6).toFixed(2)) + ' µF';
+  if (C >= 1e-9)  return trimNum((C * 1e9).toFixed(C >= 100e-9 ? 0 : 1)) + ' nF';
   return (C * 1e12).toFixed(0) + ' pF';
 }
 function fmtFreq(f) {
-  if (f >= 1000) return (f / 1000).toFixed(2).replace(/\.?0+$/, '') + ' kHz';
+  if (f >= 1000) return trimNum((f / 1000).toFixed(2)) + ' kHz';
   return f.toFixed(0) + ' Hz';
 }
+function fmtGain(gain) { return trimNum(gain.toFixed(2)) + '×'; }
 
 // Parse strings like "22k", "4.7n", "1M", "470p", "1.5u", "100".
 // Case-sensitive on the suffix: "M" = mega, "m" = milli.
@@ -428,7 +454,7 @@ function parseValue(s) {
 }
 
 // E12 series for resistors.
-const E12 = [10, 12, 15, 18, 22, 27, 33, 39, 47, 56, 68, 82];
+const E12 = [1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2];
 function snapToE12(R) {
   if (!isFinite(R) || R <= 0) return R;
   const decade = Math.pow(10, Math.floor(Math.log10(R)));
@@ -463,25 +489,28 @@ function renderBuildSheet() {
   const fc = 1 / (2 * Math.PI * R2 * C1);
   let diodeText;
   if (state.diode === 'custom') {
-    diodeText = `Custom: Is=${state.customIs.toExponential(2)} A, n=${state.customN.toFixed(2)}`;
+    diodeText = `Custom · Is=${state.customIs.toExponential(2)}A · n=${state.customN.toFixed(2)}`;
   } else {
     diodeText = DIODES[state.diode].long;
   }
-  const symText = state.symmetric ? 'symmetric (antiparallel pair)' : 'asymmetric (1 vs 2 in series)';
-
-  const lines = [
-    `R1  (Drive resistor):      ${pad(fmtResistor(R1), 8)}`,
-    `D1,D2 (clipping diodes):   ${diodeText}, ${symText}`,
-    `R2  (Tone resistor):       ${pad(fmtResistor(R2), 8)}`,
-    `C1  (Tone capacitor):      ${pad(fmtCapacitor(C1), 8)}    → cutoff ≈ ${fmtFreq(fc)}`,
-    `Output level:              ${state.level.toFixed(2)}x  (sim only — not a board value)`,
-    ``,
-    `Bypass state:              clip=${state.bypass.clip?'ON':'in'}, tone=${state.bypass.tone?'ON':'in'}, level=${state.bypass.level?'ON':'in'}`,
+  const symText = state.symmetric ? 'symmetric pair' : 'asymmetric · 1 vs 2';
+  const rows = [
+    ['IN', 'Input gain (sim)', fmtGain(state.inputGain)],
+    ['R1', 'Drive resistor', fmtResistor(R1)],
+    ['D1·D2', diodeText, symText],
+    ['R2', 'Tone resistor', fmtResistor(R2)],
+    ['C1', 'Tone capacitor', fmtCapacitor(C1)],
+    ['LVL', 'Output level (sim)', fmtGain(state.level)],
   ];
-  document.getElementById('build-sheet-text').textContent = lines.join('\n');
+  const body = document.getElementById('parts-body');
+  if (body) {
+    body.innerHTML = rows.map(r =>
+      `<tr><td class="ref">${r[0]}</td><td class="cmp">${r[1]}</td><td class="val">${r[2]}</td></tr>`
+    ).join('');
+  }
+  const note = document.getElementById('cutoff-note');
+  if (note) note.textContent = `Tone cutoff ≈ ${fmtFreq(fc)}   ·   fc = 1 / (2π · R2 · C1)`;
 }
-function pad(s, n) { while (s.length < n) s += ' '; return s; }
-
 // =====================================================================
 // Schematic SVG (built once, labels updated live)
 // =====================================================================
@@ -520,28 +549,34 @@ function buildSchematic() {
   <!-- Junction after R1 -->
   <circle cx="190" cy="150" r="3" fill="#EDE6D2" class="sch-junction seg-clip"/>
 
-  <!-- Diode pair to GND -->
+  <!-- Diode clipper to GND (antiparallel pair) -->
   <g id="sch-diodes" class="seg-clip">
-    <!-- Vertical wire down from junction -->
-    <line x1="190" y1="153" x2="190" y2="200" class="sch-wire"/>
-    <!-- Diode 1 (forward to ground): triangle pointing down, bar below -->
-    <polygon points="180,200 200,200 190,215" class="sch-component sch-diode-fill" data-diode-fill="1"/>
-    <line x1="180" y1="217" x2="200" y2="217" class="sch-component"/>
-    <text x="155" y="212" class="sch-text label">D1</text>
-    <!-- Vertical between two diodes -->
-    <line x1="190" y1="217" x2="190" y2="225" class="sch-wire"/>
-    <!-- Diode 2 (reverse parallel): triangle pointing up -->
-    <polygon points="180,240 200,240 190,225" class="sch-component sch-diode-fill" data-diode-fill="2"/>
-    <line x1="180" y1="222" x2="200" y2="222" class="sch-component"/>
-    <text x="155" y="240" class="sch-text label">D2</text>
-    <!-- Down to GND -->
-    <line x1="190" y1="240" x2="190" y2="270" class="sch-wire"/>
-    <!-- GND symbol -->
-    <line x1="178" y1="270" x2="202" y2="270" class="sch-component" stroke-width="2"/>
-    <line x1="183" y1="276" x2="197" y2="276" class="sch-component"/>
-    <line x1="187" y1="282" x2="193" y2="282" class="sch-component"/>
+    <!-- node down to top bus -->
+    <line x1="190" y1="153" x2="190" y2="182" class="sch-wire"/>
+    <line x1="170" y1="182" x2="210" y2="182" class="sch-wire"/>
 
-    <text x="245" y="218" class="sch-text value-text" data-edit="diode" style="cursor:default">Si 1N4148, sym</text>
+    <!-- D1: forward diode, points down (clips positive) -->
+    <line x1="170" y1="182" x2="170" y2="194" class="sch-wire"/>
+    <polygon points="161,194 179,194 170,208" class="sch-component sch-diode-fill" data-diode-fill="1"/>
+    <line x1="161" y1="210" x2="179" y2="210" class="sch-component"/>
+    <line x1="170" y1="210" x2="170" y2="240" class="sch-wire"/>
+    <text x="148" y="206" text-anchor="end" class="sch-text label">D1</text>
+
+    <!-- D2: reverse diode, points up (clips negative) -->
+    <line x1="210" y1="182" x2="210" y2="194" class="sch-wire"/>
+    <line x1="201" y1="194" x2="219" y2="194" class="sch-component"/>
+    <polygon points="201,208 219,208 210,194" class="sch-component sch-diode-fill" data-diode-fill="2"/>
+    <line x1="210" y1="208" x2="210" y2="240" class="sch-wire"/>
+    <text x="232" y="206" class="sch-text label">D2</text>
+
+    <!-- bottom bus to ground -->
+    <line x1="170" y1="240" x2="210" y2="240" class="sch-wire"/>
+    <line x1="190" y1="240" x2="190" y2="262" class="sch-wire"/>
+    <line x1="176" y1="262" x2="204" y2="262" class="sch-component" stroke-width="2"/>
+    <line x1="181" y1="268" x2="199" y2="268" class="sch-component"/>
+    <line x1="186" y1="274" x2="194" y2="274" class="sch-component"/>
+
+    <text x="252" y="226" class="sch-text value-text" data-edit="diode" style="cursor:default">Si 1N4148, sym</text>
   </g>
 
   <!-- Wire from junction → op-amp -->
@@ -603,7 +638,7 @@ function buildSchematic() {
     <text x="0" y="34" text-anchor="middle" class="sch-text label">OUTPUT</text>
   </g>
 
-  <text x="440" y="305" text-anchor="middle" class="sch-text label" style="letter-spacing:0.18em">DOWDY DISTORTION · v1</text>
+  <text x="440" y="305" text-anchor="middle" class="sch-text label" style="letter-spacing:0.18em">DOWDY DISTORTION</text>
 </svg>
   `;
 
@@ -657,14 +692,14 @@ function openInlineEdit(textEl, key) {
   editor.innerHTML = `<input type="text" />`;
   host.appendChild(editor);
   const input = editor.querySelector('input');
-  input.value = textEl.textContent.replace(/\s|Ω/g, '').replace('µF', 'u').replace('nF', 'n').replace('kΩ', 'k').replace('MΩ', 'M').replace('x', '');
+  input.value = textEl.textContent.replace(/\s|Ω/g, '').replace('µF', 'u').replace('nF', 'n').replace('kΩ', 'k').replace('MΩ', 'M').replace(/[x×]/g, '');
   input.focus();
   input.select();
 
   const commit = () => {
     const raw = input.value.trim();
     let v;
-    if (key === 'level') v = parseFloat(raw);
+    if (key === 'level' || key === 'inputGain') v = parseFloat(raw);
     else v = parseValue(raw, key);
     const range = RANGE[key];
     if (!isFinite(v) || (range && (v < range.min || v > range.max))) {
@@ -700,12 +735,12 @@ function openInlineEditElement(textEl, key) {
   editor.innerHTML = `<input type="text" />`;
   document.body.appendChild(editor);
   const input = editor.querySelector('input');
-  input.value = textEl.textContent.replace(/\s|Ω/g, '').replace('µF', 'u').replace('nF', 'n').replace('kΩ', 'k').replace('MΩ', 'M').replace('x', '');
+  input.value = textEl.textContent.replace(/\s|Ω/g, '').replace('µF', 'u').replace('nF', 'n').replace('kΩ', 'k').replace('MΩ', 'M').replace(/[x×]/g, '');
   input.focus(); input.select();
   const commit = () => {
     const raw = input.value.trim();
     let v;
-    if (key === 'level') v = parseFloat(raw);
+    if (key === 'level' || key === 'inputGain') v = parseFloat(raw);
     else v = parseValue(raw, key);
     const range = RANGE[key];
     if (!isFinite(v) || (range && (v < range.min || v > range.max))) {
@@ -727,6 +762,10 @@ function openInlineEditElement(textEl, key) {
 // =====================================================================
 function stopCurrentSource() {
   if (testToneSeq) { testToneSeq.stop(); testToneSeq = null; }
+  if (cleanGuitarAudio) {
+    cleanGuitarAudio.pause();
+    cleanGuitarAudio.currentTime = 0;
+  }
   if (sourceNode) {
     try { sourceNode.stop && sourceNode.stop(); } catch(_) {}
     try { sourceNode.disconnect(); } catch(_) {}
@@ -738,43 +777,76 @@ function stopCurrentSource() {
   }
 }
 
+function makePluckedStringBuffer(c, frequency, duration = 1.25) {
+  const stringLength = Math.max(2, Math.round(c.sampleRate / frequency));
+  const ring = new Float32Array(stringLength);
+  for (let i = 0; i < stringLength; i++) ring[i] = (Math.random() * 2 - 1) * 0.72;
+
+  const frameCount = Math.round(c.sampleRate * duration);
+  const buffer = c.createBuffer(1, frameCount, c.sampleRate);
+  const data = buffer.getChannelData(0);
+  let index = 0;
+  for (let i = 0; i < frameCount; i++) {
+    const current = ring[index];
+    const next = ring[(index + 1) % stringLength];
+    data[i] = current;
+    ring[index] = 0.5 * (current + next) * 0.996;
+    index = (index + 1) % stringLength;
+  }
+  return buffer;
+}
+
 function startTestTone() {
   stopCurrentSource();
   const c = ensureCtx();
-  // A repeating arpeggio plucked synth.
-  const notes = [196.00, 246.94, 293.66, 196.00, 246.94, 329.63, 261.63, 196.00]; // G3-B3-D4-G3-B3-E4-C4-G3
+  const notes = [196.00, 246.94, 293.66, 196.00, 246.94, 329.63, 261.63, 196.00];
   const stepMs = 420;
   const out = c.createGain();
-  out.gain.value = 0.35;
+  out.gain.value = 0.42;
   out.connect(nodes.inGain);
+  const activeVoices = new Set();
   let i = 0;
   let cancelled = false;
   let timer = null;
+
   const playNote = () => {
     if (cancelled) return;
-    const f = notes[i % notes.length];
+    const source = c.createBufferSource();
+    source.buffer = makePluckedStringBuffer(c, notes[i % notes.length]);
     i++;
-    const osc = c.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.value = f;
+
+    const highpass = c.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 75;
+    const body = c.createBiquadFilter();
+    body.type = 'lowpass';
+    body.frequency.value = 4200;
+    body.Q.value = 0.7;
     const env = c.createGain();
-    env.gain.value = 0;
     const t0 = c.currentTime;
-    env.gain.setValueAtTime(0, t0);
-    env.gain.linearRampToValueAtTime(1, t0 + 0.005);
-    env.gain.exponentialRampToValueAtTime(0.4, t0 + 0.12);
-    env.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
-    // gentle lowpass on the source
-    const lp = c.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 3000;
-    osc.connect(lp); lp.connect(env); env.connect(out);
-    osc.start(t0);
-    osc.stop(t0 + 0.65);
+    env.gain.setValueAtTime(0.0001, t0);
+    env.gain.exponentialRampToValueAtTime(0.95, t0 + 0.008);
+    env.gain.exponentialRampToValueAtTime(0.32, t0 + 0.16);
+    env.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
+    source.connect(highpass); highpass.connect(body); body.connect(env); env.connect(out);
+    activeVoices.add(source);
+    source.onended = () => activeVoices.delete(source);
+    source.start(t0);
+    source.stop(t0 + 1.22);
     timer = setTimeout(playNote, stepMs);
   };
+
   playNote();
   sourceNode = out;
-  testToneSeq = { stop: () => { cancelled = true; if (timer) clearTimeout(timer); try { out.disconnect(); } catch(_){} } };
+  testToneSeq = {
+    stop: () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      activeVoices.forEach(voice => { try { voice.stop(); } catch(_) {} });
+      activeVoices.clear();
+      try { out.disconnect(); } catch(_) {}
+    }
+  };
 }
 
 async function startMic() {
@@ -803,6 +875,28 @@ async function loadFileSource(file) {
   fileBuffer = await c.decodeAudioData(arrayBuf);
   startFileSource();
 }
+
+async function startCleanGuitar() {
+  stopCurrentSource();
+  const c = ensureCtx();
+  if (!cleanGuitarAudio) {
+    cleanGuitarAudio = new Audio('assets/clean-guitar.mp3');
+    cleanGuitarAudio.loop = true;
+    cleanGuitarAudio.preload = 'auto';
+    cleanGuitarNode = c.createMediaElementSource(cleanGuitarAudio);
+  }
+  cleanGuitarNode.connect(nodes.inGain);
+  sourceNode = cleanGuitarNode;
+  try {
+    await cleanGuitarAudio.play();
+  } catch (error) {
+    alert('Could not play the clean guitar sample: ' + error.message);
+    state.source = 'tone';
+    updateSourceSeg();
+    startTestTone();
+  }
+}
+
 function startFileSource() {
   if (!fileBuffer) return;
   stopCurrentSource();
@@ -872,16 +966,31 @@ function drawScopeFrame(g, canvas, buf) {
   }
   const N = Math.min(buf.length - start, Math.floor(buf.length * 0.6));
 
+  const dpr = window.devicePixelRatio || 1;
+  const trace = () => {
+    g.beginPath();
+    for (let i = 0; i < N; i++) {
+      const x = (i / N) * w;
+      const v = buf[start + i];
+      const y = h/2 - v * (h/2) * 0.9;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.stroke();
+  };
+  g.save();
+  g.lineJoin = 'round';
+  // outer phosphor glow
+  g.shadowColor = 'rgba(242,164,19,0.85)';
+  g.shadowBlur = 7 * dpr;
   g.strokeStyle = '#D98E04';
-  g.lineWidth = 1.6;
-  g.beginPath();
-  for (let i = 0; i < N; i++) {
-    const x = (i / N) * w;
-    const v = buf[start + i];
-    const y = h/2 - v * (h/2) * 0.9;
-    if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
-  }
-  g.stroke();
+  g.lineWidth = Math.max(1.6, 1.3 * dpr);
+  trace();
+  // bright core
+  g.shadowBlur = 3 * dpr;
+  g.strokeStyle = '#ffe6ad';
+  g.lineWidth = Math.max(1, 0.8 * dpr);
+  trace();
+  g.restore();
 }
 
 // =====================================================================
@@ -914,6 +1023,9 @@ function drawTransferCurve() {
 
   // curve: x = Vin (-Vmax..+Vmax), y = Vout (normalized [-1,1] = ±Vmax)
   if (!cachedCurve) return;
+  g.save();
+  g.shadowColor = 'rgba(242,164,19,0.6)';
+  g.shadowBlur = 5 * dpr;
   g.strokeStyle = '#D98E04';
   g.lineWidth = 1.8;
   g.beginPath();
@@ -924,6 +1036,7 @@ function drawTransferCurve() {
     if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
   }
   g.stroke();
+  g.restore();
 
   // axis labels
   g.fillStyle = '#6E6A57';
@@ -977,6 +1090,9 @@ function drawFreqResponse() {
 
   // Curve
   const R = state.toneR, C = state.toneC;
+  g.save();
+  g.shadowColor = 'rgba(242,164,19,0.6)';
+  g.shadowBlur = 5 * dpr;
   g.strokeStyle = '#D98E04';
   g.lineWidth = 1.8;
   g.beginPath();
@@ -992,6 +1108,7 @@ function drawFreqResponse() {
     if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
   }
   g.stroke();
+  g.restore();
 
   // Cutoff marker
   const fc = 1 / (2 * Math.PI * R * C);
@@ -1050,6 +1167,22 @@ function renderRawSliders() {
   nR.textContent  = state.customN.toFixed(2);
 }
 
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+  return new Promise((resolve, reject) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    if (copied) resolve(); else reject(new Error('Copy unavailable'));
+  });
+}
+
 // =====================================================================
 // Wiring all DOM events
 // =====================================================================
@@ -1084,6 +1217,8 @@ function wireEvents() {
         }
       } else if (src === 'file') {
         document.getElementById('file-input').click();
+      } else if (src === 'guitar') {
+        await switchSource('guitar');
       } else {
         await switchSource('tone');
       }
@@ -1095,14 +1230,6 @@ function wireEvents() {
     await loadFileSource(f);
     state.source = 'file';
     updateSourceSeg();
-  });
-
-  // Mode toggle
-  document.querySelectorAll('#mode-seg [data-mode]').forEach(b => {
-    b.addEventListener('click', () => {
-      state.mode = b.getAttribute('data-mode');
-      updateModeUI();
-    });
   });
 
   // Preset / diode / sym
@@ -1154,21 +1281,25 @@ function wireEvents() {
     applyAll();
   });
 
-  // Copy as text
+  // Copy parts list as text
   document.getElementById('copy-btn').addEventListener('click', () => {
-    const txt = document.getElementById('build-sheet-text').textContent;
-    navigator.clipboard.writeText(txt).then(() => {
+    const rows = [...document.querySelectorAll('#parts-body tr')]
+      .map(tr => [...tr.children].map(td => td.textContent).join('\t')).join('\n');
+    const note = document.getElementById('cutoff-note').textContent;
+    const txt = 'DOWDY DISTORTION — parts list\nRef\tComponent\tValue\n' + rows + '\n\n' + note;
+    copyText(txt).then(() => {
       const btn = document.getElementById('copy-btn');
       btn.classList.add('copy-flash');
       const orig = btn.textContent;
       btn.textContent = 'Copied';
       setTimeout(() => { btn.classList.remove('copy-flash'); btn.textContent = orig; }, 900);
+    }).catch(() => {
+      const btn = document.getElementById('copy-btn');
+      const orig = btn.textContent;
+      btn.textContent = 'Copy failed';
+      setTimeout(() => { btn.textContent = orig; }, 1200);
     });
   });
-
-  // Export SVG / PNG
-  document.getElementById('export-svg').addEventListener('click', exportSchematicSVG);
-  document.getElementById('export-png').addEventListener('click', exportSchematicPNG);
 
   // A/B
   document.getElementById('ab-save-a').addEventListener('click', () => { saveSnapshot('A'); });
@@ -1187,6 +1318,7 @@ async function switchSource(src) {
   state.source = src;
   updateSourceSeg();
   if (src === 'tone') startTestTone();
+  else if (src === 'guitar') await startCleanGuitar();
   else if (src === 'mic') await startMic();
   else if (src === 'file') startFileSource();
 }
@@ -1195,25 +1327,13 @@ function updateSourceSeg() {
     b.classList.toggle('active', b.getAttribute('data-source') === state.source);
   });
 }
-function updateModeUI() {
-  document.querySelectorAll('#mode-seg [data-mode]').forEach(b => {
-    b.classList.toggle('active', b.getAttribute('data-mode') === state.mode);
-  });
-  document.querySelectorAll('.engineering-only').forEach(el => {
-    el.classList.toggle('hidden', state.mode !== 'eng');
-  });
-  // Repaint plots on mode change (they may have been hidden).
-  if (state.mode === 'eng') {
-    requestAnimationFrame(() => { drawTransferCurve(); drawFreqResponse(); });
-  }
-}
 
 // =====================================================================
 // A/B snapshots
 // =====================================================================
 function snapshotState() {
   return JSON.parse(JSON.stringify({
-    preset: state.preset, driveR: state.driveR, diode: state.diode, symmetric: state.symmetric,
+    preset: state.preset, inputGain: state.inputGain, driveR: state.driveR, diode: state.diode, symmetric: state.symmetric,
     customIs: state.customIs, customN: state.customN, toneR: state.toneR, toneC: state.toneC,
     level: state.level,
   }));
@@ -1249,69 +1369,6 @@ function loadSnapshotsFromStorage() {
 }
 
 // =====================================================================
-// Export schematic SVG / PNG
-// =====================================================================
-function exportSchematicSVG() {
-  const svg = document.getElementById('schematic-svg');
-  const clone = svg.cloneNode(true);
-  // Inline current background
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  // Apply computed styles to text/component classes so they render standalone.
-  const styles = `
-    <style>
-      .sch-wire { stroke: #26241F; stroke-width: 1.6; fill: none; }
-      .sch-wire.dim { stroke: #999; }
-      .sch-component { fill: none; stroke: #26241F; stroke-width: 1.6; }
-      .sch-component.dim { stroke: #999; }
-      .sch-diode-fill { fill: #26241F; }
-      .sch-text { font-family: 'Martian Mono', monospace; font-size: 11px; fill: #26241F; }
-      .sch-text.label { fill: #6E6A57; font-size: 10px; }
-      .sch-text.value-text { fill: #D98E04; font-weight: 500; }
-      .sch-jack { fill: #26241F; }
-    </style>
-  `;
-  // Replace any url(#grid) fill with a plain light bg.
-  const bgRect = clone.querySelector('rect');
-  if (bgRect) bgRect.setAttribute('fill', '#FAF6E8');
-  clone.insertBefore(new DOMParser().parseFromString(styles, 'image/svg+xml').documentElement, clone.firstChild);
-  const ser = new XMLSerializer().serializeToString(clone);
-  const blob = new Blob([ser], { type: 'image/svg+xml' });
-  downloadBlob(blob, schematicFilename('svg'));
-}
-function exportSchematicPNG() {
-  const svg = document.getElementById('schematic-svg');
-  const ser = new XMLSerializer().serializeToString(svg);
-  const blob = new Blob([ser], { type: 'image/svg+xml' });
-  const url = URL.createObjectURL(blob);
-  const img = new Image();
-  img.onload = () => {
-    const scale = 2;
-    const canvas = document.createElement('canvas');
-    canvas.width = 880 * scale; canvas.height = 320 * scale;
-    const g = canvas.getContext('2d');
-    g.fillStyle = '#FAF6E8'; g.fillRect(0,0,canvas.width,canvas.height);
-    g.drawImage(img, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((pngBlob) => {
-      downloadBlob(pngBlob, schematicFilename('png'));
-      URL.revokeObjectURL(url);
-    }, 'image/png');
-  };
-  img.src = url;
-}
-function schematicFilename(ext) {
-  const dial = `${fmtResistor(snapToE12(state.driveR))}_${state.diode}${state.symmetric?'sym':'asym'}_${fmtResistor(snapToE12(state.toneR))}_${fmtCapacitor(snapToStandardCap(state.toneC))}`
-    .replace(/\s|Ω|µ/g, '').replace(/[^A-Za-z0-9._-]/g, '');
-  return `dowdy-distortion_${dial}.${ext}`;
-}
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-// =====================================================================
 // Init
 // =====================================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -1331,5 +1388,4 @@ document.addEventListener('DOMContentLoaded', () => {
   renderSymSeg();
   renderPresetSelect();
   updateSourceSeg();
-  updateModeUI();
 });
