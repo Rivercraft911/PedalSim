@@ -1,0 +1,14 @@
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+.claude/
+.claude.json
+.claude.local.json
+CLAUDE.md
+node_modules/
+dist/
+build/
+*.log
