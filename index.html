@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dowdy Distortion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;900&family=Archivo:wght@400;600&family=Martian+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --chassis: #26241F;
+  --chassis-2: #1F1D19;
+  --cream: #EDE6D2;
+  --cream-2: #DAD2BC;
+  --ink: #1C1A15;
+  --amber: #D98E04;
+  --amber-dim: #8a5b03;
+  --brass: #6E6A57;
+  --brass-dim: #3f3d33;
+  --bad: #C04A2B;
+  --good: #6F8F4D;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--chassis);
+  color: var(--cream);
+  font-family: 'Archivo', system-ui, sans-serif;
+  font-size: 15px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(217,142,4,0.05), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px),
+    var(--chassis);
+}
+
+button, input, select { font-family: inherit; color: inherit; }
+
+a { color: var(--amber); }
+
+/* ----- Start gate overlay ----- */
+#start-gate {
+  position: fixed; inset: 0;
+  background: rgba(20, 18, 14, 0.94);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  flex-direction: column;
+  text-align: center;
+  padding: 32px;
+  backdrop-filter: blur(4px);
+}
+#start-gate.hidden { display: none; }
+#start-gate h1 {
+  font-family: 'Big Shoulders Display', sans-serif;
+  font-weight: 900;
+  font-size: clamp(48px, 9vw, 96px);
+  letter-spacing: 0.02em;
+  margin: 0 0 4px;
+  color: var(--cream);
+  text-shadow: 0 2px 0 var(--chassis-2);
+}
+#start-gate .subtitle {
+  font-family: 'Martian Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--amber);
+  text-transform: uppercase;
+  margin: 0 0 36px;
+}
+#start-gate button {
+  background: var(--amber);
+  color: var(--ink);
+  border: none;
+  padding: 18px 44px;
+  font-family: 'Big Shoulders Display', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  box-shadow: 0 4px 0 #7f5202, 0 0 0 2px var(--brass);
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+}
+#start-gate button:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #7f5202, 0 0 0 2px var(--brass);
+}
+#start-gate .hint {
+  margin-top: 28px;
+  color: var(--brass);
+  font-size: 13px;
+  max-width: 380px;
+  line-height: 1.5;
+}
+
+/* ----- Top bar ----- */
+header.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px 14px;
+  border-bottom: 1px solid var(--brass-dim);
+  background: linear-gradient(180deg, rgba(0,0,0,0.18), transparent);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.brand .title {
+  font-family: 'Big Shoulders Display', sans-serif;
+  font-weight: 900;
+  font-size: 34px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--cream);
+}
+.brand .sub {
+  font-family: 'Martian Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--amber);
+  text-transform: uppercase;
+}
+
+.topbar-controls {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--brass);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--chassis-2);
+}
+.seg button {
+  background: transparent;
+  border: none;
+  padding: 7px 12px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cream-2);
+  cursor: pointer;
+}
+.seg button.active {
+  background: var(--amber);
+  color: var(--ink);
+}
+.seg button + button { border-left: 1px solid var(--brass-dim); }
+
+.seg-label {
+  font-family: 'Martian Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-right: 8px;
+  align-self: center;
+}
+
+/* ----- Main layout ----- */
+main.lab {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 22px;
+  padding: 22px 28px 80px;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+@media (max-width: 980px) {
+  main.lab { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--chassis-2);
+  border: 1px solid var(--brass-dim);
+  border-radius: 4px;
+  padding: 16px 18px;
+  position: relative;
+}
+.panel-title {
+  font-family: 'Martian Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin: 0 0 12px;
+}
+
+.col-main { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.col-side { display: flex; flex-direction: column; gap: 22px; }
+
+/* Schematic */
+#schematic-wrap { padding: 12px 8px 6px; }
+#schematic-wrap svg { width: 100%; height: auto; display: block; }
+
+/* Knobs row */
+.knobs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+.knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px 10px;
+  background: var(--chassis);
+  border: 1px solid var(--brass-dim);
+  border-radius: 4px;
+}
+.knob .name {
+  font-family: 'Martian Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 6px;
+}
+.knob svg { width: 78px; height: 78px; cursor: grab; touch-action: none; }
+.knob svg:active { cursor: grabbing; }
+.knob .val {
+  margin-top: 6px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cream);
+  letter-spacing: 0.02em;
+}
+
+.bypass-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.bypass-btn {
+  background: transparent;
+  border: 1px solid var(--brass);
+  color: var(--cream-2);
+  padding: 5px 9px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.bypass-btn.bypassed {
+  background: var(--brass-dim);
+  color: var(--brass);
+  text-decoration: line-through;
+}
+
+.preset-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.preset-row select, .preset-row .seg button {
+  background: var(--chassis);
+  color: var(--cream);
+  border: 1px solid var(--brass);
+  padding: 6px 10px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+/* Scopes row */
+.scopes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 700px) {
+  .scopes { grid-template-columns: 1fr; }
+}
+.scope {
+  background: var(--chassis);
+  border: 1px solid var(--brass-dim);
+  border-radius: 3px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+}
+.scope-label {
+  font-family: 'Martian Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 6px;
+}
+.scope canvas { width: 100%; height: 140px; display: block; }
+
+/* Engineering plots */
+.eng-plots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 700px) { .eng-plots { grid-template-columns: 1fr; } }
+.eng-plots canvas { width: 100%; height: 200px; display: block; }
+.engineering-only.hidden { display: none; }
+
+/* Raw Is/n sliders */
+.raw-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+.raw-slider label {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Martian Mono', monospace;
+  font-size: 11px;
+  color: var(--brass);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.raw-slider input[type=range] { width: 100%; accent-color: var(--amber); }
+
+/* Build Sheet */
+.build-sheet {
+  background: var(--cream);
+  color: var(--ink);
+  border-radius: 3px;
+  padding: 16px 18px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+}
+.build-sheet h3 {
+  margin: 0 0 10px;
+  font-family: 'Big Shoulders Display', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 18px;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: normal;
+}
+.build-sheet pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.build-sheet .copy {
+  background: var(--ink);
+  color: var(--cream);
+  border: none;
+  margin-top: 12px;
+  padding: 7px 12px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.copy-flash { background: var(--amber) !important; color: var(--ink) !important; }
+
+/* A/B controls */
+.ab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ab button {
+  background: var(--chassis-2);
+  border: 1px solid var(--brass);
+  color: var(--cream-2);
+  padding: 6px 10px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.ab button.active { background: var(--amber); color: var(--ink); }
+.ab .save { color: var(--brass); }
+
+/* Source switcher / mode toggle reuse .seg */
+
+/* Headphone warning modal */
+.modal-back {
+  position: fixed; inset: 0;
+  background: rgba(20, 18, 14, 0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 900;
+  padding: 24px;
+}
+.modal-back.hidden { display: none; }
+.modal {
+  background: var(--chassis-2);
+  border: 1px solid var(--amber-dim);
+  border-radius: 4px;
+  padding: 24px 28px;
+  max-width: 460px;
+  text-align: center;
+}
+.modal h2 {
+  font-family: 'Big Shoulders Display', sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin: 0 0 10px;
+}
+.modal p { line-height: 1.55; }
+.modal .actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
+.modal button {
+  border: 1px solid var(--brass);
+  background: transparent;
+  color: var(--cream);
+  padding: 9px 16px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.modal button.primary {
+  background: var(--amber);
+  color: var(--ink);
+  border-color: var(--amber);
+}
+
+/* Schematic styles */
+.sch-wire { stroke: var(--cream); stroke-width: 1.6; fill: none; }
+.sch-wire.active { stroke: var(--amber); }
+.sch-component { fill: none; stroke: var(--cream); stroke-width: 1.6; }
+.sch-diode-fill { fill: var(--cream); }
+/* Dimming applies to direct elements or any descendants of a dimmed group */
+.dim { opacity: 0.35; }
+.dim .sch-wire, .sch-wire.dim { stroke: var(--brass); }
+.dim .sch-component, .sch-component.dim { stroke: var(--brass); }
+.dim .sch-diode-fill, .sch-diode-fill.dim { fill: var(--brass); }
+.dim .sch-text, .sch-text.dim { fill: var(--brass-dim); }
+.sch-text {
+  font-family: 'Martian Mono', monospace;
+  font-size: 11px;
+  fill: var(--cream);
+  letter-spacing: 0.04em;
+}
+.sch-text.label { fill: var(--brass); font-size: 10px; }
+.sch-text.value-text {
+  fill: var(--amber);
+  cursor: pointer;
+  font-weight: 500;
+}
+.sch-text.value-text:hover { fill: #ffb02b; text-decoration: underline; }
+.sch-jack { fill: var(--cream); }
+.sch-bg-grid line { stroke: var(--brass-dim); stroke-width: 0.4; opacity: 0.4; }
+
+/* Inline editor for click-to-edit */
+.value-editor {
+  position: absolute;
+  background: var(--chassis);
+  border: 1px solid var(--amber);
+  padding: 4px 8px;
+  border-radius: 2px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 13px;
+  color: var(--amber);
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.value-editor input {
+  background: transparent;
+  border: none;
+  color: var(--amber);
+  font-family: inherit;
+  font-size: inherit;
+  width: 90px;
+  outline: none;
+}
+.value-editor.err { border-color: var(--bad); }
+.value-editor.err input { color: var(--bad); }
+
+footer.foot {
+  text-align: center;
+  padding: 20px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--brass-dim);
+  text-transform: uppercase;
+}
+</style>
+</head>
+<body>
+
+<!-- Start gate -->
+<div id="start-gate">
+  <h1>DOWDY DISTORTION</h1>
+  <p class="subtitle">Analog Pedal Circuit Lab</p>
+  <button id="start-btn" type="button">Tap to start</button>
+  <p class="hint">Audio requires a user gesture. Tap to wake the audio context, then plug your guitar into your mic input and put your headphones on.</p>
+</div>
+
+<!-- Headphone warning modal -->
+<div class="modal-back hidden" id="headphone-modal">
+  <div class="modal">
+    <h2>Headphones on?</h2>
+    <p>Live mic input through speakers will feed back. Plug in headphones before turning the mic on.</p>
+    <div class="actions">
+      <button id="hp-cancel" type="button">Cancel</button>
+      <button id="hp-ok" class="primary" type="button">Headphones are on</button>
+    </div>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="title">DOWDY DISTORTION</span>
+    <span class="sub">v1 — Analog Pedal Lab</span>
+  </div>
+  <div class="topbar-controls">
+    <div>
+      <span class="seg-label">Source</span>
+      <div class="seg" id="source-seg">
+        <button data-source="tone" class="active" type="button">Test tone</button>
+        <button data-source="mic" type="button">Mic</button>
+        <button data-source="file" type="button">File</button>
+      </div>
+      <input id="file-input" type="file" accept="audio/*" style="display:none">
+    </div>
+    <div>
+      <span class="seg-label">Mode</span>
+      <div class="seg" id="mode-seg">
+        <button data-mode="eng" class="active" type="button">Engineering</button>
+        <button data-mode="easy" type="button">Easy</button>
+      </div>
+    </div>
+    <div>
+      <span class="seg-label">A / B</span>
+      <div class="ab">
+        <button id="ab-save-a" class="save" type="button">→A</button>
+        <button id="ab-a" class="active" type="button">A</button>
+        <button id="ab-b" type="button">B</button>
+        <button id="ab-save-b" class="save" type="button">→B</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="lab">
+  <div class="col-main">
+
+    <!-- Schematic -->
+    <section class="panel" id="schematic-wrap">
+      <p class="panel-title">Circuit Schematic — click any value to edit</p>
+      <div id="schematic-host"></div>
+    </section>
+
+    <!-- Controls -->
+    <section class="panel">
+      <p class="panel-title">Controls</p>
+      <div class="preset-row">
+        <span class="seg-label">Preset</span>
+        <select id="preset-select">
+          <option value="ts">Tube-Screamer-style</option>
+          <option value="fuzz">Fuzz-style</option>
+          <option value="boost">Boost-into-clip</option>
+          <option value="custom">Custom</option>
+        </select>
+        <span class="seg-label" style="margin-left:14px">Diode</span>
+        <select id="diode-select">
+          <option value="si">Silicon (1N4148)</option>
+          <option value="ge">Germanium (1N34A)</option>
+          <option value="led">LED red</option>
+          <option value="custom">Custom Is / n</option>
+        </select>
+        <span class="seg-label" style="margin-left:14px">Symmetry</span>
+        <div class="seg" id="sym-seg">
+          <button data-sym="sym" class="active" type="button">Symmetric</button>
+          <button data-sym="asym" type="button">Asymmetric</button>
+        </div>
+      </div>
+
+      <div class="knobs" id="knob-row"></div>
+
+      <div class="bypass-row">
+        <button class="bypass-btn" data-bypass="clip" type="button">Bypass clipper</button>
+        <button class="bypass-btn" data-bypass="tone" type="button">Bypass tone</button>
+        <button class="bypass-btn" data-bypass="level" type="button">Bypass level</button>
+      </div>
+
+      <div class="raw-row engineering-only" id="raw-row">
+        <div class="raw-slider">
+          <label>Is (saturation current)<span id="is-readout">4.0 nA</span></label>
+          <input type="range" id="is-slider" min="0" max="1000" value="500">
+        </div>
+        <div class="raw-slider">
+          <label>n (ideality factor)<span id="n-readout">1.90</span></label>
+          <input type="range" id="n-slider" min="100" max="250" value="190">
+        </div>
+      </div>
+    </section>
+
+    <!-- Scopes -->
+    <section class="panel">
+      <p class="panel-title">Oscilloscopes</p>
+      <div class="scopes">
+        <div class="scope">
+          <span class="scope-label">Input (pre-clipper)</span>
+          <canvas id="scope-in"></canvas>
+        </div>
+        <div class="scope">
+          <span class="scope-label">Output (post-level)</span>
+          <canvas id="scope-out"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Engineering plots -->
+    <section class="panel engineering-only" id="eng-plots-panel">
+      <p class="panel-title">Engineering Plots</p>
+      <div class="eng-plots">
+        <div class="scope">
+          <span class="scope-label">Diode transfer curve  V<tspan>in</tspan> → V<tspan>out</tspan></span>
+          <canvas id="curve-plot"></canvas>
+        </div>
+        <div class="scope">
+          <span class="scope-label">Tone filter frequency response |H(f)|</span>
+          <canvas id="freq-plot"></canvas>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <aside class="col-side">
+    <!-- Build sheet -->
+    <section class="panel">
+      <p class="panel-title">Build Sheet</p>
+      <div class="build-sheet">
+        <h3>Parts list</h3>
+        <pre id="build-sheet-text">…</pre>
+        <button id="copy-btn" class="copy" type="button">Copy as text</button>
+        <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="export-svg" class="copy" type="button">Save SVG</button>
+          <button id="export-png" class="copy" type="button">Save PNG</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Status / notes -->
+    <section class="panel">
+      <p class="panel-title">Notes</p>
+      <p style="font-size:13px; line-height:1.5; color: var(--cream-2);">
+        Knobs map to real component values. The clipping curve is solved per-sample
+        from the Shockley diode equation (Newton-Raphson) and baked into a WaveShaper
+        for zero-cost real-time processing. The tone stage is a real RC lowpass.
+        Values shown on the Build Sheet snap to standard E12 resistor and capacitor
+        values — what you'd actually buy.
+      </p>
+    </section>
+  </aside>
+</main>
+
+<footer class="foot">DOWDY DISTORTION · made with solder fumes &amp; love</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
