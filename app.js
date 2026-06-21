@@ -66,6 +66,7 @@ let fileBuffer = null;
 let testToneSeq = null;
 let cleanGuitarAudio = null;
 let cleanGuitarNode = null;
+let cleanGuitarGain = null;
 
 function ensureCtx() {
   if (!ctx) {
@@ -777,76 +778,40 @@ function stopCurrentSource() {
   }
 }
 
-function makePluckedStringBuffer(c, frequency, duration = 1.25) {
-  const stringLength = Math.max(2, Math.round(c.sampleRate / frequency));
-  const ring = new Float32Array(stringLength);
-  for (let i = 0; i < stringLength; i++) ring[i] = (Math.random() * 2 - 1) * 0.72;
-
-  const frameCount = Math.round(c.sampleRate * duration);
-  const buffer = c.createBuffer(1, frameCount, c.sampleRate);
-  const data = buffer.getChannelData(0);
-  let index = 0;
-  for (let i = 0; i < frameCount; i++) {
-    const current = ring[index];
-    const next = ring[(index + 1) % stringLength];
-    data[i] = current;
-    ring[index] = 0.5 * (current + next) * 0.996;
-    index = (index + 1) % stringLength;
-  }
-  return buffer;
-}
-
 function startTestTone() {
   stopCurrentSource();
   const c = ensureCtx();
-  const notes = [196.00, 246.94, 293.66, 196.00, 246.94, 329.63, 261.63, 196.00];
+  const notes = [196.00, 246.94, 293.66, 196.00, 246.94, 329.63, 261.63, 196.00]; // G3-B3-D4-G3-B3-E4-C4-G3
   const stepMs = 420;
   const out = c.createGain();
-  out.gain.value = 0.42;
+  out.gain.value = 0.35;
   out.connect(nodes.inGain);
-  const activeVoices = new Set();
   let i = 0;
   let cancelled = false;
   let timer = null;
-
   const playNote = () => {
     if (cancelled) return;
-    const source = c.createBufferSource();
-    source.buffer = makePluckedStringBuffer(c, notes[i % notes.length]);
+    const f = notes[i % notes.length];
     i++;
-
-    const highpass = c.createBiquadFilter();
-    highpass.type = 'highpass';
-    highpass.frequency.value = 75;
-    const body = c.createBiquadFilter();
-    body.type = 'lowpass';
-    body.frequency.value = 4200;
-    body.Q.value = 0.7;
+    const osc = c.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = f;
     const env = c.createGain();
     const t0 = c.currentTime;
-    env.gain.setValueAtTime(0.0001, t0);
-    env.gain.exponentialRampToValueAtTime(0.95, t0 + 0.008);
-    env.gain.exponentialRampToValueAtTime(0.32, t0 + 0.16);
-    env.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
-    source.connect(highpass); highpass.connect(body); body.connect(env); env.connect(out);
-    activeVoices.add(source);
-    source.onended = () => activeVoices.delete(source);
-    source.start(t0);
-    source.stop(t0 + 1.22);
+    env.gain.setValueAtTime(0, t0);
+    env.gain.linearRampToValueAtTime(1, t0 + 0.005);
+    env.gain.exponentialRampToValueAtTime(0.4, t0 + 0.12);
+    env.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 3000;
+    osc.connect(lp); lp.connect(env); env.connect(out);
+    osc.start(t0);
+    osc.stop(t0 + 0.65);
     timer = setTimeout(playNote, stepMs);
   };
-
   playNote();
   sourceNode = out;
-  testToneSeq = {
-    stop: () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-      activeVoices.forEach(voice => { try { voice.stop(); } catch(_) {} });
-      activeVoices.clear();
-      try { out.disconnect(); } catch(_) {}
-    }
-  };
+  testToneSeq = { stop: () => { cancelled = true; if (timer) clearTimeout(timer); try { out.disconnect(); } catch(_){} } };
 }
 
 async function startMic() {
@@ -880,14 +845,18 @@ async function startCleanGuitar() {
   stopCurrentSource();
   const c = ensureCtx();
   if (!cleanGuitarAudio) {
-    cleanGuitarAudio = new Audio('assets/clean-guitar.mp3');
+    cleanGuitarAudio = document.getElementById('clean-guitar-audio');
     cleanGuitarAudio.loop = true;
-    cleanGuitarAudio.preload = 'auto';
+    cleanGuitarAudio.volume = 1;
     cleanGuitarNode = c.createMediaElementSource(cleanGuitarAudio);
+    cleanGuitarGain = c.createGain();
+    cleanGuitarGain.gain.value = 1.6;
+    cleanGuitarNode.connect(cleanGuitarGain);
   }
-  cleanGuitarNode.connect(nodes.inGain);
-  sourceNode = cleanGuitarNode;
+  cleanGuitarGain.connect(nodes.inGain);
+  sourceNode = cleanGuitarGain;
   try {
+    if (c.state === 'suspended') await c.resume();
     await cleanGuitarAudio.play();
   } catch (error) {
     alert('Could not play the clean guitar sample: ' + error.message);
