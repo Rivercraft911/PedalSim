@@ -333,6 +333,19 @@ main.lab {
   text-transform: uppercase;
   border-radius: 2px;
 }
+.preset-reset {
+  background: transparent;
+  color: var(--cream-2);
+  border: 1px solid var(--brass-dim);
+  padding: 6px 10px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.preset-reset:hover { border-color: var(--brass); color: var(--cream); }
 
 /* Scopes row */
 .scopes {
@@ -622,6 +635,28 @@ main.lab {
   width: 90px;
   outline: none;
 }
+.value-editor .editor-unit {
+  color: var(--brass);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.value-editor .quick-picks {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  margin-top: 5px;
+}
+.value-editor .quick-pick {
+  background: var(--chassis-2);
+  border: 1px solid var(--brass-dim);
+  border-radius: 2px;
+  color: var(--cream-2);
+  cursor: pointer;
+  font-family: 'Martian Mono', monospace;
+  font-size: 9px;
+  padding: 2px 4px;
+}
+.value-editor .quick-pick:hover { border-color: var(--amber); color: var(--amber); }
 .value-editor.err { border-color: var(--bad); }
 .value-editor.err input { color: var(--bad); }
 
@@ -657,8 +692,6 @@ footer.foot {
   </div>
 </div>
 
-<audio id="clean-guitar-audio" preload="auto" src="assets/clean-guitar.mp3"></audio>
-
 <header class="topbar">
   <div class="brand">
     <span class="title">DOWDY DISTORTION</span>
@@ -669,7 +702,6 @@ footer.foot {
       <span class="seg-label">Source</span>
       <div class="seg" id="source-seg">
         <button data-source="tone" class="active" type="button">Test tone</button>
-        <button data-source="guitar" type="button">Clean guitar</button>
         <button data-source="mic" type="button">Mic</button>
         <button data-source="file" type="button">File</button>
       </div>
@@ -707,6 +739,7 @@ footer.foot {
           <option value="boost">Boost-into-clip</option>
           <option value="custom">Custom</option>
         </select>
+        <button id="preset-reset" class="preset-reset" type="button">Reset</button>
         <span class="seg-label" style="margin-left:14px">Diode</span>
         <select id="diode-select">
           <option value="si">Silicon (1N4148)</option>
@@ -756,9 +789,9 @@ footer.foot {
       </div>
     </section>
 
-    <!-- Engineering plots -->
+    <!-- Circuit analysis -->
     <section class="panel" id="eng-plots-panel">
-      <p class="panel-title">Engineering Plots</p>
+      <p class="panel-title">Circuit Analysis</p>
       <div class="eng-plots">
         <div class="scope">
           <span class="scope-label">Diode transfer curve  V<tspan>in</tspan> → V<tspan>out</tspan></span>

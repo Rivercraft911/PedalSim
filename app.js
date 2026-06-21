@@ -21,6 +21,14 @@ const RANGE = {
   customN: { min: 1.0,   max: 2.5,  scale: 'linear', unit: '',  kind: 'n' },
 };
 
+const EDIT_RANGE = {
+  inputGain: { min: 0.1,   max: 100 },
+  driveR:    { min: 10,    max: 10e6 },
+  toneR:     { min: 10,    max: 10e6 },
+  toneC:     { min: 10e-12,max: 10e-6 },
+  level:     { min: 0,     max: 2 },
+};
+
 const DIODES = {
   si:  { Is: 4e-9,   n: 1.9, vf: 0.6,  short: 'Si', long: 'Silicon 1N4148' },
   ge:  { Is: 200e-9, n: 1.7, vf: 0.28, short: 'Ge', long: 'Germanium 1N34A (approx)' },
@@ -64,9 +72,6 @@ let sourceNode = null;
 let micStream = null;
 let fileBuffer = null;
 let testToneSeq = null;
-let cleanGuitarAudio = null;
-let cleanGuitarNode = null;
-let cleanGuitarGain = null;
 
 function ensureCtx() {
   if (!ctx) {
@@ -343,7 +348,7 @@ function knobArcPath(t) {
 function renderKnobs() {
   for (const def of KNOB_DEFS) {
     const v = state[def.stateKey];
-    const t = valueToNorm(v, def.range);
+    const t = clamp(valueToNorm(v, def.range), 0, 1);
     const ang = -135 + t * 270; // -135 = full left, +135 = full right
     const el = knobEls[def.key];
     el.indicator.setAttribute('transform', `rotate(${ang} 40 40)`);
@@ -372,7 +377,7 @@ function attachKnobDrag(def) {
     const startNorm = valueToNorm(startVal, def.range);
     const newNorm = clamp(startNorm + dy / 200, 0, 1);
     const newVal = normToValue(newNorm, def.range);
-    setParam(def.stateKey, newVal);
+    setParam(def.stateKey, newVal, true);
     e.preventDefault();
   };
   const onUp = () => {
@@ -391,7 +396,7 @@ function attachKnobDrag(def) {
     if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { norm += step; e.preventDefault(); }
     else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { norm -= step; e.preventDefault(); }
     else return;
-    setParam(def.stateKey, normToValue(clamp(norm, 0, 1), def.range));
+    setParam(def.stateKey, normToValue(clamp(norm, 0, 1), def.range), true);
   });
   el.svg.addEventListener('dblclick', () => {
     // Open inline edit on the knob value
@@ -399,9 +404,9 @@ function attachKnobDrag(def) {
   });
 }
 
-function setParam(key, val) {
-  if (key === 'driveR' || key === 'toneR') val = snapToE12(val);
-  else if (key === 'toneC') val = snapToStandardCap(val);
+function setParam(key, val, snapToStandard = false) {
+  if (snapToStandard && (key === 'driveR' || key === 'toneR')) val = snapToE12(val);
+  else if (snapToStandard && key === 'toneC') val = snapToStandardCap(val);
   state[key] = val;
   // If a value diverges from any preset, mark Custom.
   if (state.preset !== 'custom' && key !== 'level' && key !== 'inputGain') {
@@ -484,9 +489,9 @@ function snapToStandardCap(C) {
 // Build Sheet
 // =====================================================================
 function renderBuildSheet() {
-  const R1 = snapToE12(state.driveR);
-  const R2 = snapToE12(state.toneR);
-  const C1 = snapToStandardCap(state.toneC);
+  const R1 = state.driveR;
+  const R2 = state.toneR;
+  const C1 = state.toneC;
   const fc = 1 / (2 * Math.PI * R2 * C1);
   let diodeText;
   if (state.diode === 'custom') {
@@ -655,9 +660,9 @@ function buildSchematic() {
 function renderSchematicLabels() {
   const svg = document.getElementById('schematic-svg');
   if (!svg) return;
-  svg.querySelector('[data-edit="driveR"]').textContent = fmtResistor(snapToE12(state.driveR));
-  svg.querySelector('[data-edit="toneR"]').textContent  = fmtResistor(snapToE12(state.toneR));
-  svg.querySelector('[data-edit="toneC"]').textContent  = fmtCapacitor(snapToStandardCap(state.toneC));
+  svg.querySelector('[data-edit="driveR"]').textContent = fmtResistor(state.driveR);
+  svg.querySelector('[data-edit="toneR"]').textContent  = fmtResistor(state.toneR);
+  svg.querySelector('[data-edit="toneC"]').textContent  = fmtCapacitor(state.toneC);
   svg.querySelector('[data-edit="level"]').textContent  = state.level.toFixed(2) + 'x';
   const dText = (state.diode === 'custom')
     ? `Custom Is/n, ${state.symmetric ? 'sym' : 'asym'}`
@@ -681,6 +686,75 @@ function renderSchematicLabels() {
 // ----- Inline editor -----
 let activeEditor = null;
 
+const QUICK_VALUES = {
+  driveR: ['1k', '10k', '47k', '100k', '470k', '1M'],
+  toneR:  ['1k', '10k', '47k', '100k', '470k', '1M'],
+  toneC:  ['100p', '1n', '10n', '47n', '100n', '1u'],
+  inputGain: ['1', '2', '4', '8', '16'],
+  level: ['0.25', '0.5', '1', '1.5', '2'],
+};
+
+function editorUnit(key) {
+  const value = state[key];
+  if (key === 'driveR' || key === 'toneR') {
+    if (value >= 1e6) return { scale: 1e6, label: 'MΩ' };
+    if (value >= 1e3) return { scale: 1e3, label: 'kΩ' };
+    return { scale: 1, label: 'Ω' };
+  }
+  if (key === 'toneC') {
+    if (value >= 1e-6) return { scale: 1e-6, label: 'µF' };
+    if (value >= 1e-9) return { scale: 1e-9, label: 'nF' };
+    return { scale: 1e-12, label: 'pF' };
+  }
+  return { scale: 1, label: '×' };
+}
+
+function editorValueText(key) {
+  const { scale } = editorUnit(key);
+  return trimNum((state[key] / scale).toFixed(4));
+}
+
+function parseEditorValue(raw, key) {
+  if (key === 'level' || key === 'inputGain') return parseFloat(raw);
+  const value = parseValue(raw);
+  const hasUnit = /[pPnNuUµmMkKgGΩ]|\bf\b/i.test(raw);
+  return hasUnit ? value : value * editorUnit(key).scale;
+}
+
+function configureValueEditor(editor, key) {
+  const unit = editorUnit(key);
+  const picks = QUICK_VALUES[key] || [];
+  editor.innerHTML = `<input type="text" inputmode="decimal" title="Use a suffix such as k, M, n, or u; bare numbers use the unit shown." />
+    <span class="editor-unit">${unit.label}</span>
+    <div class="quick-picks">${picks.map(value => `<button class="quick-pick" type="button" data-value="${value}">${value}</button>`).join('')}</div>`;
+  const input = editor.querySelector('input');
+  input.value = editorValueText(key);
+
+  const commit = () => {
+    const value = parseEditorValue(input.value.trim(), key);
+    const range = EDIT_RANGE[key];
+    if (!isFinite(value) || !range || value < range.min || value > range.max) {
+      editor.classList.add('err');
+      return;
+    }
+    setParam(key, value);
+    closeInlineEdit();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') closeInlineEdit();
+  });
+  input.addEventListener('blur', () => setTimeout(closeInlineEdit, 80));
+  editor.querySelectorAll('.quick-pick').forEach(button => {
+    button.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      input.value = button.getAttribute('data-value');
+      commit();
+    });
+  });
+  return input;
+}
+
 function openInlineEdit(textEl, key) {
   closeInlineEdit();
   const host = document.getElementById('schematic-host');
@@ -690,31 +764,10 @@ function openInlineEdit(textEl, key) {
   editor.className = 'value-editor';
   editor.style.left = (elRect.left - hostRect.left) + 'px';
   editor.style.top  = (elRect.top - hostRect.top - 4) + 'px';
-  editor.innerHTML = `<input type="text" />`;
   host.appendChild(editor);
-  const input = editor.querySelector('input');
-  input.value = textEl.textContent.replace(/\s|Ω/g, '').replace('µF', 'u').replace('nF', 'n').replace('kΩ', 'k').replace('MΩ', 'M').replace(/[x×]/g, '');
+  const input = configureValueEditor(editor, key);
   input.focus();
   input.select();
-
-  const commit = () => {
-    const raw = input.value.trim();
-    let v;
-    if (key === 'level' || key === 'inputGain') v = parseFloat(raw);
-    else v = parseValue(raw, key);
-    const range = RANGE[key];
-    if (!isFinite(v) || (range && (v < range.min || v > range.max))) {
-      editor.classList.add('err');
-      return;
-    }
-    setParam(key, v);
-    closeInlineEdit();
-  };
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); commit(); }
-    else if (e.key === 'Escape') closeInlineEdit();
-  });
-  input.addEventListener('blur', () => setTimeout(closeInlineEdit, 80));
   activeEditor = editor;
 }
 function closeInlineEdit() {
@@ -733,28 +786,9 @@ function openInlineEditElement(textEl, key) {
   editor.style.position = 'fixed';
   editor.style.left = rect.left + 'px';
   editor.style.top  = (rect.top - 4) + 'px';
-  editor.innerHTML = `<input type="text" />`;
   document.body.appendChild(editor);
-  const input = editor.querySelector('input');
-  input.value = textEl.textContent.replace(/\s|Ω/g, '').replace('µF', 'u').replace('nF', 'n').replace('kΩ', 'k').replace('MΩ', 'M').replace(/[x×]/g, '');
+  const input = configureValueEditor(editor, key);
   input.focus(); input.select();
-  const commit = () => {
-    const raw = input.value.trim();
-    let v;
-    if (key === 'level' || key === 'inputGain') v = parseFloat(raw);
-    else v = parseValue(raw, key);
-    const range = RANGE[key];
-    if (!isFinite(v) || (range && (v < range.min || v > range.max))) {
-      editor.classList.add('err'); return;
-    }
-    setParam(key, v);
-    closeInlineEdit();
-  };
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); commit(); }
-    else if (e.key === 'Escape') closeInlineEdit();
-  });
-  input.addEventListener('blur', () => setTimeout(closeInlineEdit, 80));
   activeEditor = editor;
 }
 
@@ -763,10 +797,6 @@ function openInlineEditElement(textEl, key) {
 // =====================================================================
 function stopCurrentSource() {
   if (testToneSeq) { testToneSeq.stop(); testToneSeq = null; }
-  if (cleanGuitarAudio) {
-    cleanGuitarAudio.pause();
-    cleanGuitarAudio.currentTime = 0;
-  }
   if (sourceNode) {
     try { sourceNode.stop && sourceNode.stop(); } catch(_) {}
     try { sourceNode.disconnect(); } catch(_) {}
@@ -839,31 +869,6 @@ async function loadFileSource(file) {
   const arrayBuf = await file.arrayBuffer();
   fileBuffer = await c.decodeAudioData(arrayBuf);
   startFileSource();
-}
-
-async function startCleanGuitar() {
-  stopCurrentSource();
-  const c = ensureCtx();
-  if (!cleanGuitarAudio) {
-    cleanGuitarAudio = document.getElementById('clean-guitar-audio');
-    cleanGuitarAudio.loop = true;
-    cleanGuitarAudio.volume = 1;
-    cleanGuitarNode = c.createMediaElementSource(cleanGuitarAudio);
-    cleanGuitarGain = c.createGain();
-    cleanGuitarGain.gain.value = 1.6;
-    cleanGuitarNode.connect(cleanGuitarGain);
-  }
-  cleanGuitarGain.connect(nodes.inGain);
-  sourceNode = cleanGuitarGain;
-  try {
-    if (c.state === 'suspended') await c.resume();
-    await cleanGuitarAudio.play();
-  } catch (error) {
-    alert('Could not play the clean guitar sample: ' + error.message);
-    state.source = 'tone';
-    updateSourceSeg();
-    startTestTone();
-  }
 }
 
 function startFileSource() {
@@ -1186,8 +1191,6 @@ function wireEvents() {
         }
       } else if (src === 'file') {
         document.getElementById('file-input').click();
-      } else if (src === 'guitar') {
-        await switchSource('guitar');
       } else {
         await switchSource('tone');
       }
@@ -1208,6 +1211,15 @@ function wireEvents() {
       const p = PRESETS[state.preset];
       Object.assign(state, p);
     }
+    applyAll();
+  });
+  document.getElementById('preset-reset').addEventListener('click', () => {
+    Object.assign(state, PRESETS.ts, {
+      preset: 'ts',
+      inputGain: 4,
+      bypass: { clip: false, tone: false, level: false },
+    });
+    routeChain();
     applyAll();
   });
   document.getElementById('diode-select').addEventListener('change', (e) => {
@@ -1287,7 +1299,6 @@ async function switchSource(src) {
   state.source = src;
   updateSourceSeg();
   if (src === 'tone') startTestTone();
-  else if (src === 'guitar') await startCleanGuitar();
   else if (src === 'mic') await startMic();
   else if (src === 'file') startFileSource();
 }
